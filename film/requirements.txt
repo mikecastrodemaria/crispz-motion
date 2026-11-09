@@ -1,0 +1,8 @@
+# FILM venv (film/.venv), created by install_film.bat. torch comes from the
+# PyTorch cu128 index (RTX 50 series / Blackwell needs CUDA 12.8 builds):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+# torchvision MUST come from that index too: spandrel needs it, and the PyPI build
+# replaces the CUDA torch with a CPU one.
+numpy
+pillow
+spandrel
