@@ -1,0 +1,2 @@
+# The app venv (.venv). FILM and ESRGAN live in film/.venv (film/requirements.txt).
+pillow

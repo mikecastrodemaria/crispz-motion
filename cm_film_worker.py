@@ -21,12 +21,21 @@ One JSON line per event on stdout (the caller parses them, a human can read them
 Usage:
     film/.venv/Scripts/python cm_film_worker.py --model film/models/film_net_fp32.pt \
         --times 3 --out out_dir key0.png key1.png [key2.png ...] [--fp16] [--cpu]
+
+    film/.venv/Scripts/python cm_film_worker.py --model ... --fp16 --jobs jobs.json
+
+--jobs (what the app uses, lot 1): a JSON list of segments to compute, each
+{"a": key_a, "b": key_b, "out": folder, "times": N}. The app gives only the segments
+whose cache is missing, each with its own folder and its own N. A segment is written
+to "<out>.tmp" then renamed, so a folder that exists is always complete. In that mode
+the "seg" of the events is the index in the jobs list.
 """
 
 import os
 import sys
 import json
 import time
+import shutil
 import argparse
 
 import numpy as np
@@ -103,27 +112,44 @@ class Film:
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="crispz-motion FILM worker (PyTorch)")
-    ap.add_argument("keys", nargs="+", help="key images, in order (2 or more, same size)")
+    ap.add_argument("keys", nargs="*", help="key images, in order (2 or more, same size)")
     ap.add_argument("--model", required=True)
     ap.add_argument("--times", type=int, default=3, help="recursions: 2^N - 1 frames per pair")
-    ap.add_argument("--out", required=True)
+    ap.add_argument("--out", help="output folder (with positional keys)")
+    ap.add_argument("--jobs", help="JSON list of {a, b, out, times} (the app's mode)")
     ap.add_argument("--fp16", action="store_true")
     ap.add_argument("--cpu", action="store_true")
     ap.add_argument("--no-save", action="store_true", help="time only (benchmarks)")
     a = ap.parse_args(argv)
 
-    if len(a.keys) < 2:
-        emit(event="error", error="need at least 2 keys")
-        return 2
-    if not 0 <= a.times <= 8:
-        emit(event="error", error="--times must be 0 to 8")
-        return 2
+    if a.jobs:
+        try:
+            with open(a.jobs, encoding="utf-8") as fh:
+                jobs = json.load(fh)
+            jobs = [{"a": j["a"], "b": j["b"], "out": j["out"],
+                     "times": int(j.get("times", a.times))} for j in jobs]
+        except (OSError, ValueError, KeyError, TypeError) as e:
+            emit(event="error", error=f"bad --jobs file {a.jobs}: {e}")
+            return 2
+    else:
+        if len(a.keys) < 2 or not a.out:
+            emit(event="error", error="need at least 2 keys and --out (or --jobs)")
+            return 2
+        jobs = [{"a": a.keys[i], "b": a.keys[i + 1], "times": a.times,
+                 "out": os.path.join(a.out, f"seg{i:03d}")} for i in range(len(a.keys) - 1)]
+    if not jobs:
+        emit(event="done", segments=0, frames=0, infer_s=0, save_s=0, wall_s=0)
+        return 0
+    for j in jobs:
+        if not 0 <= j["times"] <= 8:
+            emit(event="error", error="times must be 0 to 8")
+            return 2
     device = torch.device("cpu" if a.cpu or not torch.cuda.is_available() else "cuda")
     if device.type == "cpu" and not a.cpu:
         # never a silent fallback: FILM on the CPU is 10 to 50 times slower
         emit(event="warning", warning=f"no CUDA in this torch ({torch.__version__}): FILM "
                                       f"runs on the CPU. A CPU build of torch? run "
-                                      f"install_film.bat again")
+                                      f"update with --force-deps")
     try:
         film = Film(a.model, device, a.fp16)
     except Exception as e:
@@ -134,38 +160,53 @@ def main(argv=None):
          dtype=str(film.dtype).replace("torch.", ""), load_s=round(film.load_s, 2),
          torch=torch.__version__)
 
-    imgs = [load_rgb(p) for p in a.keys]
-    size = imgs[0].size
-    for p, im in zip(a.keys, imgs):
-        if im.size != size:
-            emit(event="error", error=f"{p} is {im.size[0]}x{im.size[1]}, the first key "
-                                      f"is {size[0]}x{size[1]}: keys must share one size")
-            return 2
+    cache = {}
 
-    per_pair = 2 ** a.times - 1
+    def image(path):
+        if path not in cache:
+            if len(cache) > 4:      # consecutive jobs share a key; keep a few, not all
+                cache.clear()
+            cache[path] = load_rgb(path)
+        return cache[path]
+
+    size = None
     totals = {"infer_s": 0.0, "save_s": 0.0, "frames": 0}
     t_all = time.time()
     try:
-        for seg in range(len(imgs) - 1):
+        for seg, job in enumerate(jobs):
+            ia, ib = image(job["a"]), image(job["b"])
+            if size is None:
+                size = ia.size
+            for p, im in ((job["a"], ia), (job["b"], ib)):
+                if im.size != size:
+                    emit(event="error", error=f"{p} is {im.size[0]}x{im.size[1]}, the first "
+                                              f"key is {size[0]}x{size[1]}: keys must share "
+                                              f"one size")
+                    return 2
+            per_pair = 2 ** job["times"] - 1
             if device.type == "cuda":
                 torch.cuda.reset_peak_memory_stats()
-            x0, hw = pad_to_align(to_tensor(imgs[seg], device, film.dtype))
-            x1, _ = pad_to_align(to_tensor(imgs[seg + 1], device, film.dtype))
+            x0, hw = pad_to_align(to_tensor(ia, device, film.dtype))
+            x1, _ = pad_to_align(to_tensor(ib, device, film.dtype))
             state = {"done": 0, "infer": 0.0}
 
-            def on_frame(dt_s, seg=seg, state=state):
+            def on_frame(dt_s, seg=seg, state=state, per_pair=per_pair):
                 state["done"] += 1
                 state["infer"] += dt_s
                 emit(event="frame", seg=seg, done=state["done"], total=per_pair,
                      infer_s=round(dt_s, 3))
 
-            frames = film.recursive(x0, x1, a.times, on_frame)
+            frames = film.recursive(x0, x1, job["times"], on_frame)
             t_s = time.time()
             if not a.no_save:
-                d = os.path.join(a.out, f"seg{seg:03d}")
-                os.makedirs(d, exist_ok=True)
+                d = job["out"]
+                tmp = d + ".tmp"
+                shutil.rmtree(tmp, ignore_errors=True)
+                os.makedirs(tmp, exist_ok=True)
                 for i, f in enumerate(frames):
-                    to_image(f, hw).save(os.path.join(d, f"f{i:05d}.png"), compress_level=1)
+                    to_image(f, hw).save(os.path.join(tmp, f"f{i:05d}.png"), compress_level=1)
+                shutil.rmtree(d, ignore_errors=True)
+                os.replace(tmp, d)
             save_s = time.time() - t_s
             peak = (torch.cuda.max_memory_allocated() / 1e9) if device.type == "cuda" else None
             totals["infer_s"] += state["infer"]
@@ -183,7 +224,7 @@ def main(argv=None):
     except Exception as e:
         emit(event="error", error=f"{type(e).__name__}: {e}")
         return 1
-    emit(event="done", segments=len(imgs) - 1, frames=totals["frames"],
+    emit(event="done", segments=len(jobs), frames=totals["frames"],
          infer_s=round(totals["infer_s"], 2), save_s=round(totals["save_s"], 2),
          wall_s=round(time.time() - t_all, 2))
     return 0

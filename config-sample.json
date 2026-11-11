@@ -1,0 +1,32 @@
+{
+  "_help": "Copy to config.json (gitignored; the install does it). Missing keys take the defaults of cm_core.py, so an old config.json keeps working. Relative paths are relative to this folder.",
+  "engine": "moss",
+  "engines": {
+    "moss": {
+      "dir": "../crispz-moss",
+      "url": "http://127.0.0.1:7860",
+      "launch": true
+    }
+  },
+  "_engines_help": "The crispz family tools that make the keys, through the CLI protocol v1. 'dir' = the install folder, so crispz-motion can start app.py when nothing answers at 'url' (log in logs/<name>.log); 'launch' = allow that start; 'python' = optional interpreter (default <dir>/.venv). An app started by hand is never stopped. One family app at a time on the GPU.",
+  "turbo": {
+    "steps": 4,
+    "guidance": 1.0,
+    "loras": ["moss-turbo-4-steps:1"]
+  },
+  "_turbo_help": "The spec of every generated key: MOSS-Image with its Turbo LoRA, 4 steps, CFG 1 (Apache 2.0). Needs crispz-moss with per-call guidance and spec LoRAs (commits e250d99, accb7b4).",
+  "gen_size": [1088, 1920],
+  "projects_dir": "projects",
+  "work_mpx": 2.1,
+  "_work_help": "Keys and FILM run at this size at most (megapixels). Bigger outputs go through ESRGAN on every frame.",
+  "film": {
+    "python": "",
+    "model": "film/models/film_net_fp32.pt",
+    "fp16": true
+  },
+  "esrgan_dir": "",
+  "esrgan_model": "4x-ClearRealityV1.safetensors",
+  "_esrgan_help": "Empty esrgan_dir = the engine's own ESRGAN folder (crispz-moss preferences.json, else <dir>/upscale_models).",
+  "ffmpeg": "ffmpeg",
+  "stop_engine_before_film": true
+}
