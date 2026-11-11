@@ -34,5 +34,9 @@
   "esrgan_model": "4x-ClearRealityV1.safetensors",
   "_esrgan_help": "Empty esrgan_dir = the engine's own ESRGAN folder (crispz-moss preferences.json, else <dir>/upscale_models).",
   "ffmpeg": "ffmpeg",
-  "stop_engine_before_film": true
+  "stop_engine_before_film": true,
+  "server": {"host": "127.0.0.1", "port": 7870, "open_browser": true},
+  "_server_help": "The web page (start with no argument). Keep host on 127.0.0.1: the page can start apps and delete projects, it is not meant for a network.",
+  "animator": {"denoise": 0.625, "denoise_min": 0.25, "denoise_max": 0.75, "seg": 1.0},
+  "_animator_help": "Import of the A1111 Animator settings: the settings' own denoise per frame becomes 'denoise' per key (a row's denoise moves it in proportion, within min and max), one key every 'seg' seconds."
 }

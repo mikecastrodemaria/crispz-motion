@@ -1,7 +1,7 @@
 # crispz-motion - start (Windows PowerShell).
 #   1. first run: install
 #   2. GitHub has new commits: asks "Update first?" (10 s, no answer = no)
-#   3. runs the app: the arguments go to cm_cli.py (none = status)
+#   3. no argument: the web page (cm_server.py, Ctrl+C to stop); arguments: cm_cli.py
 # If scripts are blocked:  powershell -ExecutionPolicy Bypass -File start.ps1
 Set-Location -LiteralPath $PSScriptRoot
 $py = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
@@ -30,9 +30,11 @@ if ($new -gt 0) {
         & (Join-Path $PSScriptRoot "update.ps1") -NoPause
     }
 }
-& $py cm_cli.py @args
+if ($args.Count -eq 0) { & $py cm_server.py } else { & $py cm_cli.py @args }
 $rc = $LASTEXITCODE
-# no argument (a double-click / "Run with PowerShell"), or an error: keep the window open
-if ($rc -ne 0) { Write-Host "[start] stopped with an error, see the messages above" }
-if ($rc -ne 0 -or $args.Count -eq 0) { Read-Host "Press Enter" | Out-Null }
+# an error: keep the window open
+if ($rc -ne 0) {
+    Write-Host "[start] stopped with an error, see the messages above"
+    Read-Host "Press Enter" | Out-Null
+}
 exit $rc

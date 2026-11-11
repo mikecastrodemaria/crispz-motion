@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-11-11 - lot 3
+
+- The web page (`cm_server.py`, `assets/index.html`): projects (open, duplicate, delete
+  to `projects/.trash`), the keys strip with the distance guard and drag-and-drop
+  reorder, a key's time / hold / ease / recipe, regeneration, the next key by chain, edit
+  or inpaint (mask painted on the image, soft edge), middle keys, image import and
+  generation, the output settings, the render with progress per step, preview, player,
+  log and Cancel. One job at a time, in the background.
+- `start` with no argument opens the web page; with arguments it runs the command line.
+- Import of the A1111 Animator settings (`cm_animator.py`): `settings.txt` and
+  `keyframes.csv` become a plan of keys one every second (gen, then img2img chain), with
+  every change written in the plan's notes; the plan is edited on the page, then made.
+- Cancel: FILM and ESRGAN workers are killed at once, keys stop between two engine calls.
+- Output sizes fit inside the 16:9 frame turned like the keys: square keys give 2160 x
+  2160 in 4K and 1080 x 1080 in 1080p (were 3840 and 1920 on the long side).
+- `--res 1mpx` works (it was read as a WxH size and refused).
+- Distance guard: thumbnails cached by file and date.
+- CPU tests `tests/test_animator.py`, `tests/test_server.py`.
+
 ## 2026-11-11 - lot 2
 
 - Keys made by the family: `chain` (img2img from the previous key, seed + 1, one prompt

@@ -2,7 +2,7 @@
 # crispz-motion - start (Linux / macOS).
 #   1. first run: install
 #   2. GitHub has new commits: asks "Update first?" (10 s, no answer = no)
-#   3. runs the app: the arguments go to cm_cli.py (none = status)
+#   3. no argument: the web page (cm_server.py, Ctrl+C to stop); arguments: cm_cli.py
 # The body is a function on purpose: bash reads a script while it runs, and a git pull
 # that changes this file would otherwise make it read the wrong line.
 main() {
@@ -23,6 +23,7 @@ main() {
         fi
         case "$ans" in [yYoO]*) ./update.sh ;; esac
     fi
+    [ $# -eq 0 ] && exec "$py" cm_server.py
     exec "$py" cm_cli.py "$@"
 }
 main "$@"

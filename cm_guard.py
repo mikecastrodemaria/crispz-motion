@@ -16,16 +16,25 @@ The score: mean absolute difference of the two keys as 64 px wide grey thumbnail
 The guard never blocks: it says, and the render goes on.
 """
 
+import os
+
 from PIL import Image, ImageChops, ImageStat
 
 SIZE = 64
+_CACHE = {}         # (path, size, mtime) -> thumbnail: the web page asks on every load
 
 
 def _thumb(path):
-    with Image.open(path) as im:
-        g = im.convert("L")
-        w, h = g.size
-        return g.resize((SIZE, max(1, round(SIZE * h / w))), Image.BOX)
+    st = os.stat(path)
+    k = (os.path.abspath(path), st.st_size, st.st_mtime_ns)
+    if k not in _CACHE:
+        if len(_CACHE) > 2000:
+            _CACHE.clear()
+        with Image.open(path) as im:
+            g = im.convert("L")
+            w, h = g.size
+            _CACHE[k] = g.resize((SIZE, max(1, round(SIZE * h / w))), Image.BOX)
+    return _CACHE[k]
 
 
 def distance(a_path, b_path):

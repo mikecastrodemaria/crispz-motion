@@ -6,9 +6,10 @@ frame in between. No video model: the keys come from the crispz image engines th
 the family CLI protocol v1 (crispz-moss by default), FILM makes the motion, ESRGAN takes
 the frames to 4K, ffmpeg writes the file.
 
-> **Status: lot 2.** Projects, keys imported or made by the family (generation, img2img
-> chain, edit, inpaint, assisted middle key, regeneration), distance guard, FILM,
-> retiming, 4K, exports and the command line work. Next: the web page (lot 3).
+> **Status: lot 3.** The web page, the import of the A1111 Animator settings, projects,
+> keys imported or made by the family (generation, img2img chain, edit, inpaint, assisted
+> middle key, regeneration), distance guard, FILM, retiming, 4K, exports and the command
+> line work. Next: delivery (lot 4).
 
 ## Install, start, update
 
@@ -22,8 +23,9 @@ the frames to 4K, ffmpeg writes the file.
   FILM and ESRGAN (torch cu128, spandrel). It downloads the FILM weights (138 MB) and
   writes `config.json` from `config-sample.json`. Python 3.10 to 3.13.
 - **start** installs on the first run. When GitHub has new commits it asks
-  `Update first? [y/N]`; after 10 s without an answer it starts without updating. Its
-  arguments go to `cm_cli.py`; with none, it prints the status.
+  `Update first? [y/N]`; after 10 s without an answer it starts without updating. With
+  no argument (a double-click) it opens the web page; with arguments they go to
+  `cm_cli.py` (`start.bat status` prints the status).
 - **update** runs `git pull --ff-only`, so git refuses to overwrite a file you changed.
   It reinstalls only the dependencies whose file changed, and checks that torch is
   still a CUDA build. `config.json` is never touched; new keys of the sample are listed.
@@ -32,6 +34,59 @@ the frames to 4K, ffmpeg writes the file.
 - ffmpeg and ffprobe must be on the PATH (`winget install Gyan.FFmpeg`,
   `sudo apt install ffmpeg`, `brew install ffmpeg`).
 - macOS has no CUDA: FILM and ESRGAN run on the CPU there, slowly.
+
+## The web page
+
+`start.bat` (or `start.ps1`, `./start.sh`) with no argument starts `cm_server.py` and
+opens http://127.0.0.1:7870/ in the browser. Ctrl+C in its window stops it, and stops the
+engine crispz-motion started.
+
+- **Projects**: open, duplicate, delete (the folder goes to `projects/.trash`, from where
+  it can be taken back), new project, import of Animator settings.
+- **Keys**: the strip of keys in time order, each with its source, prompt, seed, time and
+  denoise. Drag a key to reorder (the times stay, the images move). Between two keys, the
+  distance guard score and a `+ mid` button. A click on a key opens it: time, hold, ease,
+  its recipe, Regenerate (same seed, a given seed or a new one, with or without the keys
+  built on it), Remove, and the next key made from it: img2img chain (one or more keys,
+  the denoise slider shows the steps really played), edit (the licence note), inpaint (the
+  area painted on the image with a soft edge). A key made from a key in the middle of the
+  strip goes halfway to the next one.
+- **Add keys**: drop images, or generate one from a prompt.
+- **Output**: resolution, fps, loop, closing segment, one key every N seconds or a total
+  duration (Re-space), formats, codec, CRF, upscaler, 4K order, engine.
+- **Render**: progress per step (keys, plan, FILM, timing, size, export), a preview, the
+  video player, the files, the times of the last render, the log, Cancel.
+
+Every action that needs the engine or the GPU is a job: one at a time, shown in the bar
+at the bottom with its last log line. Cancel stops FILM and ESRGAN at once (their worker
+is killed) and the keys between two engine calls (a call in flight finishes first).
+While a job runs on a project, the page cannot change that project.
+
+## Import of the A1111 Animator settings
+
+The Animator extension diffused every frame: frame i was frame i-1 through img2img at a
+low denoise, seed + 1, with a prompt that moved by weights (`A :w AND B :1-w`).
+crispz-motion keeps the idea on spaced keys: the import turns `settings.txt` (and
+`keyframes.csv` when there is one) into a plan of keys, one every second by default.
+
+| Animator | crispz-motion |
+|---|---|
+| width, height | the ratio of the keys, made at about 2.1 Mpx (1440 x 1440 for 512 x 512) |
+| total_time, fps | keys at 0, 1, 2 ... total_time s; the output fps |
+| frame 0 | key 0, generated (or the initial image when it is on disk) |
+| frame i, img2img from i-1 | key n, img2img from key n-1 (`chain`) |
+| seed + 1 per frame | the seed of the key's frame (2763806460, 2763806485 ...) |
+| denoise 0.3 per frame | 0.625 per key (`animator.denoise`); a row's denoise moves it in proportion, between 0.25 and 0.75 |
+| `A :w AND B :1-w` | the part with the larger weight at the key's frame |
+| `<lora:...>`, SD 1.5 negative embeddings | removed |
+| cfg_scale | not used (Turbo LoRA at CFG 1, where the negative has no effect either) |
+| x / y shift, zoom, rotation | not in v1: ignored |
+| vid_mp4 / webm / gif | the output formats |
+
+Each change is written in the plan's notes. The plan is a table: each planned key's
+seed, denoise and prompt can be changed (or one prompt for all) before **Make the planned
+keys**. The keys are made in order and saved one by one, so a cancelled or failed build
+goes on where it stopped; a planned key whose image was removed is made again.
 
 ## Command line
 
@@ -103,7 +158,7 @@ stop` stops it by hand; an engine you started yourself is never touched.
 
 | Option | Values |
 |---|---|
-| `--res` | `1mpx`, `1080p` (= `2mpx`), `4k`, `work` (the key size), `WxH` |
+| `--res` | `1mpx`, `1080p` (= `2mpx`), `4k`, `work` (the key size), `WxH`. The frame keeps the keys' ratio and fits inside 1280 x 720, 1920 x 1080 or 3840 x 2160 turned like the keys: square keys give 720, 1080 or 2160 square |
 | `--fps` | 24, 25, 30, 60 or any integer |
 | `--loop` | `once`, `pingpong`, `closed` (adds a last-to-first segment, `--close` seconds) |
 | `--seg` | re-spaces the keys every SEG seconds |
@@ -155,6 +210,9 @@ projects/<date>-<name>/
 
 | File | Role |
 |---|---|
+| `cm_server.py` | the web page's server: JSON API, jobs, project files |
+| `assets/index.html` | the web page (one file, no framework) |
+| `cm_animator.py` | import of the A1111 Animator settings, the plan of keys |
 | `cm_cli.py` | the command line |
 | `cm_render.py` | one render: plan, FILM, retiming, size, checks, export |
 | `cm_timeline.py` | retiming: frame times, eases, holds, loops, output sizes |

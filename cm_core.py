@@ -38,10 +38,79 @@ DEFAULTS = {
     "esrgan_model": "4x-ClearRealityV1.safetensors",
     "ffmpeg": "ffmpeg",
     "stop_engine_before_film": True,
+    # the web page (cm_server.py): local only by default
+    "server": {"host": "127.0.0.1", "port": 7870, "open_browser": True},
+    # Animator import: the chain denoise for the settings' own denoise (lot 2: 0.625 to
+    # 0.75 keeps the character, 0.875 loses it), and one key every `seg` seconds
+    "animator": {"denoise": 0.625, "denoise_min": 0.25, "denoise_max": 0.75, "seg": 1.0},
 }
 
 _LOCK = threading.Lock()
 _LOG_FILE = None
+_LISTENERS = []                 # fn(line) for every log line (the web page's job log)
+_PROGRESS = []                  # fn(step, done, total, preview) for render progress
+CANCEL = threading.Event()      # set by the web page's Cancel button
+_PROCS = set()                  # worker subprocesses running now (killed on cancel)
+
+
+class Cancelled(RuntimeError):
+    pass
+
+
+def check_cancel():
+    """Raises Cancelled when the user asked to stop (between keys, frames, steps)."""
+    if CANCEL.is_set():
+        raise Cancelled("cancelled")
+
+
+def add_listener(fn):
+    _LISTENERS.append(fn)
+
+
+def remove_listener(fn):
+    if fn in _LISTENERS:
+        _LISTENERS.remove(fn)
+
+
+def add_progress(fn):
+    _PROGRESS.append(fn)
+
+
+def remove_progress(fn):
+    if fn in _PROGRESS:
+        _PROGRESS.remove(fn)
+
+
+def progress(step, done, total, preview=None):
+    for fn in list(_PROGRESS):
+        try:
+            fn(step, done, total, preview)
+        except Exception:
+            pass
+
+
+def register_proc(p):
+    _PROCS.add(p)
+    if CANCEL.is_set():
+        kill_procs()
+
+
+def unregister_proc(p):
+    _PROCS.discard(p)
+
+
+def kill_procs():
+    import subprocess
+    for p in list(_PROCS):
+        try:
+            if p.poll() is None:
+                if is_windows():
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)],
+                                   capture_output=True)
+                else:
+                    p.kill()
+        except Exception:
+            pass
 
 
 def deep_merge(base, over):
@@ -95,6 +164,11 @@ def log(msg, tag="motion"):
                 with open(_LOG_FILE, "a", encoding="utf-8") as fh:
                     fh.write(f"{time.strftime('%H:%M:%S')} {line}\n")
             except OSError:
+                pass
+        for fn in list(_LISTENERS):
+            try:
+                fn(line)
+            except Exception:
                 pass
 
 

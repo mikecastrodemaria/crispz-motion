@@ -111,25 +111,37 @@ def plan(keys, fps, loop="pingpong", close=None):
 
 
 def output_size(work_size, res):
-    """Final (w, h) for a resolution choice. The key ratio is kept: the long side follows
-    the preset (1mpx 1280, 1080p / 2mpx 1920, 4k 3840), and a ratio within 2 % of 16:9
-    or 9:16 snaps to the standard frame (1088 x 1920 keys -> 1080 x 1920, 2160 x 3840).
+    """Final (w, h) for a resolution choice. The key ratio is kept and the frame fits
+    inside the preset's 16:9 frame turned like the keys (1mpx 1280 x 720, 1080p / 2mpx
+    1920 x 1080, 4k 3840 x 2160): a square key gives 720, 1080 or 2160 square. A ratio
+    within 2 % of 16:9 or 9:16 snaps to the standard frame (1088 x 1920 keys -> 1080 x
+    1920, 2160 x 3840).
     "WxH" is taken as is (the frames are cropped to it). "work" keeps the key size.
     Always even (yuv420p)."""
     ww, wh = work_size
     res = str(res or "1080p").lower().strip()
     if res == "work":
         return ww - ww % 2, wh - wh % 2
-    if "x" in res:
-        w, h = (int(v) for v in res.split("x", 1))
+    longs = {"1mpx": 1280, "720p": 1280, "1080p": 1920, "2mpx": 1920, "4k": 3840}
+    if res not in longs and "x" in res:     # "1mpx" has an x too: the presets come first
+        try:
+            w, h = (int(v) for v in res.split("x", 1))
+        except ValueError:
+            raise PlanError(f"bad size {res}")
         if w < 16 or h < 16:
             raise PlanError(f"bad size {res}")
         return w - w % 2, h - h % 2
-    longs = {"1mpx": 1280, "720p": 1280, "1080p": 1920, "2mpx": 1920, "4k": 3840}
     if res not in longs:
         raise PlanError(f"unknown resolution '{res}' (1mpx, 1080p, 2mpx, 4k, work, WxH)")
-    long_side = longs[res]
+    # the frame fits INSIDE the standard 16:9 frame turned like the keys: a square 4K is
+    # 2160 x 2160, not 3840 x 3840 (decided by Mike on lot 3), a square 1080p 1080 x 1080
+    box_long = longs[res]
+    box_short = box_long * 9 // 16
     ratio = min(ww, wh) / max(ww, wh)
-    short = long_side * 9 // 16 if abs(ratio / (9 / 16) - 1) < 0.02 \
-        else 2 * round(long_side * ratio / 2)
+    if abs(ratio / (9 / 16) - 1) < 0.02:
+        long_side, short = box_long, box_short
+    else:
+        s = min(box_long / max(ww, wh), box_short / min(ww, wh))
+        long_side = 2 * round(max(ww, wh) * s / 2)
+        short = 2 * round(min(ww, wh) * s / 2)
     return (long_side, short) if ww >= wh else (short, long_side)

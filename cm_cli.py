@@ -1,4 +1,4 @@
-"""crispz-motion - command line (lot 1; the web page comes with lot 3).
+"""crispz-motion - command line (the web page is cm_server.py: start with no argument).
 
     cm_cli.py status
     cm_cli.py new NAME [--keys a.png b.png ...] [--seg 1.0]

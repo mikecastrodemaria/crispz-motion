@@ -91,10 +91,12 @@ def test_output_sizes():
     assert tl.output_size((1088, 1920), "1080p") == (1080, 1920)
     assert tl.output_size((1088, 1920), "4k") == (2160, 3840)
     assert tl.output_size((1920, 1088), "4k") == (3840, 2160)
-    assert tl.output_size((1024, 1024), "4k") == (3840, 3840)
+    assert tl.output_size((1024, 1024), "4k") == (2160, 2160)    # inside 3840 x 2160
+    assert tl.output_size((1440, 1440), "1080p") == (1080, 1080)
+    assert tl.output_size((1440, 1440), "1mpx") == (720, 720)
     assert tl.output_size((1088, 1920), "work") == (1088, 1920)
     assert tl.output_size((1088, 1920), "720x1280") == (720, 1280)
-    w, h = tl.output_size((832, 1248), "1080p")       # 2:3 keeps its ratio
-    assert (w, h) == (1280, 1920)
+    w, h = tl.output_size((832, 1248), "1080p")       # 2:3 keeps its ratio, inside 1080 x 1920
+    assert (w, h) == (1080, 1620)
     with pytest.raises(tl.PlanError):
         tl.output_size((1088, 1920), "8k")

@@ -16,7 +16,7 @@ import json
 import hashlib
 import subprocess
 
-from cm_core import HERE, venv_python, log
+from cm_core import HERE, venv_python, log, check_cancel, register_proc, unregister_proc
 
 FILM_DIR = os.path.join(HERE, "film")
 
@@ -64,9 +64,18 @@ def _run(cmd, on_event, log_path, cwd=None):
     """Runs a worker, streams its JSON lines. Returns (ok, last error text)."""
     env = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0
+    check_cancel()
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                          encoding="utf-8", errors="replace", cwd=cwd or HERE, env=env,
                          creationflags=flags)
+    register_proc(p)
+    try:
+        return _stream(p, cmd, on_event, log_path)
+    finally:
+        unregister_proc(p)
+
+
+def _stream(p, cmd, on_event, log_path):
     error = None
     for line in p.stdout:
         line = line.strip()
@@ -84,6 +93,7 @@ def _run(cmd, on_event, log_path, cwd=None):
             on_event(ev)
     stderr = p.stderr.read()
     p.wait()
+    check_cancel()              # killed by the Cancel button: not a worker failure
     if p.returncode != 0:
         if log_path and stderr:
             with open(log_path, "a", encoding="utf-8") as fh:

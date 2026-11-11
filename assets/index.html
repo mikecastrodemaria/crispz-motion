@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>crispz-motion</title>
+<style>
+:root {
+  --bg: #f6f5f2; --panel: #ffffff; --panel2: #efede8; --line: #dcd9d2; --text: #1d1c1a;
+  --muted: #6c6860; --accent: #2f6fdf; --accent-text: #ffffff; --ok: #2e8b57;
+  --warn: #b7791f; --risk: #c0392b; --chip: #e7e4dd; --shadow: 0 1px 2px rgba(0,0,0,.06);
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151515; --panel: #1e1e1e; --panel2: #262626; --line: #353535; --text: #e8e6e1;
+    --muted: #9b978f; --accent: #5b8ff0; --accent-text: #0b0b0b; --ok: #4fbf7f;
+    --warn: #e0a640; --risk: #ef6b5b; --chip: #2c2c2c; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151515; --panel: #1e1e1e; --panel2: #262626; --line: #353535; --text: #e8e6e1;
+  --muted: #9b978f; --accent: #5b8ff0; --accent-text: #0b0b0b; --ok: #4fbf7f;
+  --warn: #e0a640; --risk: #ef6b5b; --chip: #2c2c2c; --shadow: none;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 16px;
+  border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0;
+  z-index: 5; }
+header h1 { font-size: 16px; margin: 0; letter-spacing: .02em; }
+header .proj { font-weight: 600; }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+.pill { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--chip);
+  color: var(--muted); white-space: nowrap; }
+.pill.ok::before, .pill.bad::before { content: ""; display: inline-block; width: 7px; height: 7px;
+  border-radius: 50%; margin-right: 5px; vertical-align: 1px; background: var(--ok); }
+.pill.bad::before { background: var(--risk); }
+main { max-width: 1400px; margin: 0 auto; padding: 16px; padding-bottom: 120px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  padding: 14px 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+section > h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; margin: 0 0 10px;
+  color: var(--muted); display: flex; align-items: center; gap: 8px; }
+section > h2 .sp { flex: 1; }
+section > h2 .muted, section > h2 .small, section > h2 button { text-transform: none; letter-spacing: 0; }
+button, .btn { font: inherit; border: 1px solid var(--line); background: var(--panel2);
+  color: var(--text); padding: 5px 11px; border-radius: 6px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text);
+  font-weight: 600; }
+button.danger { color: var(--risk); }
+button:disabled { opacity: .45; cursor: default; }
+button.small { padding: 2px 7px; font-size: 12px; }
+input, select, textarea { font: inherit; color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; }
+textarea { width: 100%; resize: vertical; }
+input[type=number] { width: 84px; }
+input[type=range] { padding: 0; }
+label { color: var(--muted); font-size: 12px; display: block; margin-bottom: 2px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.row > div { min-width: 0; }
+.grow { flex: 1 1 260px; }
+.muted { color: var(--muted); }
+.small { font-size: 12px; }
+.mono { font-family: var(--mono); font-size: 12px; }
+.hidden { display: none !important; }
+.note { padding: 8px 10px; border-left: 3px solid var(--warn); background: var(--panel2);
+  border-radius: 4px; margin: 6px 0; font-size: 13px; }
+.err { color: var(--risk); }
+
+/* projects */
+.plist { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.pcard { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel2);
+  cursor: pointer; display: flex; flex-direction: column; }
+.pcard img, .pcard .ph { width: 100%; height: 130px; object-fit: cover; background: var(--chip);
+  display: block; }
+.pcard .b { padding: 8px; }
+.pcard .b b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pcard .acts { display: flex; gap: 6px; padding: 0 8px 8px; }
+
+/* keys strip */
+.strip { display: flex; align-items: stretch; gap: 0; overflow-x: auto; padding: 4px 2px 10px; }
+.kcard { flex: 0 0 168px; border: 2px solid var(--line); border-radius: 8px; background: var(--panel2);
+  overflow: hidden; cursor: pointer; display: flex; flex-direction: column; }
+.kcard.sel { border-color: var(--accent); }
+.kcard.drag { opacity: .4; }
+.kcard.over { border-style: dashed; border-color: var(--accent); }
+.kcard img { width: 100%; height: 150px; object-fit: cover; display: block; background: var(--chip); }
+.kcard .b { padding: 6px 7px; font-size: 12px; }
+.kcard .t1 { display: flex; justify-content: space-between; gap: 4px; align-items: center; }
+.kcard .pr { color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; min-height: 2.8em; margin-top: 3px; }
+.badge { font-size: 11px; padding: 0 6px; border-radius: 99px; background: var(--chip); color: var(--muted); }
+.badge.nc { background: var(--risk); color: #fff; }
+.gap { flex: 0 0 64px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; font-size: 11px; color: var(--muted); text-align: center; }
+.gap .sc { font-family: var(--mono); padding: 1px 6px; border-radius: 99px; background: var(--chip); }
+.gap .sc.warn { background: var(--warn); color: #111; }
+.gap .sc.risk { background: var(--risk); color: #fff; }
+.drop { border: 2px dashed var(--line); border-radius: 8px; padding: 16px; text-align: center;
+  color: var(--muted); }
+.drop.on { border-color: var(--accent); color: var(--text); }
+
+/* key detail */
+.kdetail { display: grid; grid-template-columns: minmax(240px, 420px) 1fr; gap: 16px; }
+@media (max-width: 860px) { .kdetail { grid-template-columns: 1fr; } }
+.kimg { position: relative; background: var(--chip); border-radius: 6px; overflow: hidden; }
+.kimg img { width: 100%; display: block; }
+.kimg canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair;
+  opacity: .6; touch-action: none; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 10px 0; }
+.tabs button { border: none; background: none; border-bottom: 2px solid transparent; border-radius: 0;
+  padding: 6px 10px; color: var(--muted); }
+.tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+pre.recipe { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px;
+  max-height: 180px; overflow: auto; white-space: pre-wrap; word-break: break-word; margin: 6px 0; }
+
+/* plan */
+table { border-collapse: collapse; width: 100%; }
+td, th { border-bottom: 1px solid var(--line); padding: 5px 6px; text-align: left; vertical-align: top;
+  font-size: 13px; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+td textarea { min-height: 38px; font-size: 12px; }
+tr.made td { color: var(--muted); }
+
+/* render */
+.steps { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 8px 0; }
+.step { font-size: 12px; }
+.bar { height: 6px; background: var(--chip); border-radius: 3px; overflow: hidden; margin-top: 3px; }
+.bar > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+.media { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 860px) { .media { grid-template-columns: 1fr; } }
+.media video, .media img { width: 100%; max-height: 70vh; background: #000; border-radius: 6px;
+  object-fit: contain; display: block; }
+pre.log { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px;
+  height: 240px; overflow: auto; font: 12px/1.4 var(--mono); white-space: pre-wrap; word-break: break-word;
+  margin: 8px 0 0; }
+
+/* job bar */
+#jobbar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel);
+  border-top: 1px solid var(--line); padding: 8px 16px; display: flex; gap: 12px; align-items: center;
+  z-index: 6; flex-wrap: wrap; }
+#jobbar .lbl { font-weight: 600; }
+#jobbar .last { flex: 1 1 300px; color: var(--muted); font: 12px var(--mono); overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis; min-width: 0; }
+.st-running { color: var(--accent); } .st-done { color: var(--ok); }
+.st-error, .st-cancelled { color: var(--risk); }
+dialog { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text);
+  max-width: 560px; width: calc(100% - 32px); }
+dialog::backdrop { background: rgba(0,0,0,.35); }
+</style>
+</head>
+<body>
+<header>
+  <h1>crispz-motion</h1>
+  <button id="btnProjects">Projects</button>
+  <span class="proj" id="hdrProject"></span>
+  <div class="pills" id="pills"></div>
+  <button class="small" id="btnTheme" title="Light / dark">Theme</button>
+</header>
+
+<main>
+  <!-- PROJECTS -->
+  <div id="vProjects">
+    <section>
+      <h2>New project</h2>
+      <div class="row">
+        <div class="grow"><label>Name</label><input id="newName" placeholder="smoke" style="width:100%"></div>
+        <div><button class="primary" id="btnNew">Create</button></div>
+      </div>
+    </section>
+    <section>
+      <h2>Import Animator settings</h2>
+      <p class="muted small" style="margin-top:0">The settings.txt (and keyframes.csv) of the A1111
+        Animator extension become a plan of keys one every few seconds: key 0 generated, each next key
+        made from the one before by img2img, FILM in between. Nothing is made until you say so.</p>
+      <div class="row">
+        <div><label>settings.txt</label><input type="file" id="anSettings" accept=".txt,.json"></div>
+        <div><label>keyframes.csv (optional)</label><input type="file" id="anKeys" accept=".csv"></div>
+        <div><label>One key every (s)</label><input type="number" id="anSeg" value="1" min="0.25" step="0.25"></div>
+        <div class="grow"><label>Project name</label><input id="anName" placeholder="animator" style="width:100%"></div>
+        <div><button class="primary" id="btnAnimator">Import</button></div>
+      </div>
+    </section>
+    <section>
+      <h2>Projects <span class="sp"></span><span class="muted small" id="projDir"></span></h2>
+      <div class="plist" id="plist"></div>
+    </section>
+  </div>
+
+  <!-- PROJECT -->
+  <div id="vProject" class="hidden">
+    <section id="secPlan" class="hidden">
+      <h2>Plan from the Animator <span class="sp"></span><span id="planCount" class="small"></span></h2>
+      <div id="planNotes"></div>
+      <div class="row" style="margin:8px 0">
+        <div class="grow"><label>Prompt for every planned key</label><input id="planAllPrompt" style="width:100%"></div>
+        <div><label>Chain denoise for every key</label><input type="number" id="planAllDenoise" min="0.125" max="1" step="0.125"></div>
+        <div><button id="btnPlanAll">Apply</button></div>
+      </div>
+      <div style="max-height:360px;overflow:auto"><table id="planTable"></table></div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="btnBuild">Make the planned keys</button>
+        <button id="btnPlanSave">Save the plan</button>
+        <button class="danger" id="btnPlanClear">Forget the plan</button>
+        <span class="muted small" id="planHint"></span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Keys <span class="sp"></span>
+        <span class="muted small" id="workSize"></span></h2>
+      <div class="strip" id="strip"></div>
+      <div class="muted small">Drag a key to reorder (the times stay, the images move). Between two keys:
+        the distance guard; above the risk level FILM ghosts, insert a middle key.</div>
+    </section>
+
+    <section id="secKey" class="hidden">
+      <h2>Key <span id="kTitle"></span> <span class="sp"></span>
+        <button class="small danger" id="btnRemove">Remove</button></h2>
+      <div class="kdetail">
+        <div>
+          <div class="kimg" id="kImgWrap"><img id="kImg" alt=""><canvas id="maskCanvas" class="hidden"></canvas></div>
+          <div class="row small" style="margin-top:8px">
+            <div><label>Time (s)</label><input type="number" id="kT" step="0.05" min="0"></div>
+            <div><label>Hold (frames)</label><input type="number" id="kHold" min="0" step="1"></div>
+            <div><label>Ease of the next segment</label><select id="kEase"></select></div>
+          </div>
+        </div>
+        <div>
+          <div id="kInfo"></div>
+          <pre class="recipe mono" id="kRecipe"></pre>
+          <div class="row" id="regenRow">
+            <div><label>Seed</label><input type="number" id="rgSeed" style="width:130px"></div>
+            <div><label>&nbsp;</label><label style="color:var(--text)"><input type="checkbox" id="rgCascade"> and the keys built on it</label></div>
+            <div><button id="btnRegen">Regenerate</button></div>
+            <div><button id="btnRegenNew">New seed</button></div>
+          </div>
+          <div class="tabs" id="nextTabs">
+            <button data-t="chain" class="on">Next: img2img chain</button>
+            <button data-t="edit">Next: edit</button>
+            <button data-t="inpaint">Next: inpaint</button>
+          </div>
+          <div data-p="chain">
+            <div class="row">
+              <div><label>Keys</label><input type="number" id="chCount" value="1" min="1" max="40"></div>
+              <div><label>Denoise <span id="chEff" class="mono"></span></label>
+                <input type="range" id="chDen" min="0.125" max="1" step="0.125" value="0.625" style="width:180px"></div>
+            </div>
+            <label style="margin-top:8px">Prompts, one per new key (the last repeats; empty = the key's own)</label>
+            <textarea id="chPrompts" rows="3"></textarea>
+            <p class="muted small">0.625 to 0.75 makes the image live and keeps the character; 0.875 loses it.
+              A new prompt alone barely moves the pose: to move the subject, use edit.</p>
+            <button class="primary" id="btnChain">Make</button>
+          </div>
+          <div data-p="edit" class="hidden">
+            <label>Instruction</label>
+            <textarea id="edIns" rows="2" placeholder="turn his head to the left, keep the black and white pencil drawing style"></textarea>
+            <div class="row" style="margin-top:6px"><div><label>Seed (empty = key + 1)</label><input type="number" id="edSeed" style="width:130px"></div></div>
+            <p class="note" id="edLic"></p>
+            <p class="muted small">Name the style in the instruction, or the edit may change it. About 160 s per key.</p>
+            <button class="primary" id="btnEdit">Make</button>
+          </div>
+          <div data-p="inpaint" class="hidden">
+            <p class="muted small" style="margin-top:0">Paint the area to redraw on the image. The soft edge
+              blends the new area into the key (a hard mask leaves a visible border).</p>
+            <div class="row">
+              <div><label>Brush</label><input type="range" id="ipBrush" min="4" max="200" value="60"></div>
+              <div><label>Soft edge (px)</label><input type="number" id="ipFeather" value="24" min="0" max="200"></div>
+              <div><label>&nbsp;</label><label style="color:var(--text)"><input type="checkbox" id="ipErase"> erase</label></div>
+              <div><button id="ipClear">Clear</button></div>
+            </div>
+            <label style="margin-top:8px">Prompt of the area</label>
+            <textarea id="ipPrompt" rows="2" placeholder="smoke coming out of his mouth"></textarea>
+            <div class="row" style="margin-top:6px">
+              <div><label>Denoise</label><input type="number" id="ipDen" value="1" min="0.25" max="1" step="0.25"></div>
+              <div><label>Seed</label><input type="number" id="ipSeed" style="width:130px"></div>
+            </div>
+            <button class="primary" id="btnInpaint" style="margin-top:8px">Make</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Add keys</h2>
+      <div class="row">
+        <div class="grow">
+          <div class="drop" id="drop">Drop images here, or <input type="file" id="files" multiple accept="image/*"></div>
+        </div>
+        <div class="grow">
+          <label>Generate a key from a prompt (Turbo LoRA, 4 steps, CFG 1)</label>
+          <textarea id="gPrompt" rows="2"></textarea>
+          <div class="row" style="margin-top:6px">
+            <div class="grow"><label>Negative</label><input id="gNeg" style="width:100%" value="text, logo, watermark"></div>
+            <div><label>Seed</label><input type="number" id="gSeed" style="width:130px"></div>
+            <div id="gSizeBox"><label>Size (first key)</label><input id="gSize" value="1088x1920" style="width:110px"></div>
+            <div><button class="primary" id="btnGen">Generate</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Output <span class="sp"></span><span class="muted small" id="outInfo"></span></h2>
+      <div class="row">
+        <div><label>Resolution</label><select id="oRes">
+          <option value="1mpx">1 Mpx</option><option value="1080p">1080p (2 Mpx)</option>
+          <option value="4k">4K</option><option value="work">key size</option></select></div>
+        <div><label>Fps</label><input type="number" id="oFps" min="1" max="120"></div>
+        <div><label>Loop</label><select id="oLoop"></select></div>
+        <div><label>Closing segment (s)</label><input type="number" id="oClose" min="0" step="0.25" placeholder="auto"></div>
+        <div><label>One key every (s)</label><input type="number" id="oSeg" min="0.1" step="0.25"></div>
+        <div><label>or total (s)</label><input type="number" id="oTotal" min="0.1" step="0.5"></div>
+        <div><button id="btnRespace" title="Puts the keys at regular times, in their order">Re-space</button></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label>Formats</label>
+          <label style="color:var(--text);display:inline"><input type="checkbox" class="oFmt" value="mp4"> mp4</label>
+          <label style="color:var(--text);display:inline"><input type="checkbox" class="oFmt" value="webm"> webm</label>
+          <label style="color:var(--text);display:inline"><input type="checkbox" class="oFmt" value="gif"> gif</label></div>
+        <div><label>Codec</label><select id="oCodec"><option>x264</option><option>x265</option></select></div>
+        <div><label>CRF</label><input type="number" id="oCrf" min="0" max="51"></div>
+        <div><label>Above the key size</label><select id="oUp"><option value="esrgan">ESRGAN</option><option value="lanczos">Lanczos</option></select></div>
+        <div><label>4K order</label><select id="oOrder">
+          <option value="film_first">FILM, then ESRGAN on every frame</option>
+          <option value="keys_first">keys upscaled, FILM at output size</option></select></div>
+        <div><label>Engine</label><select id="oEngine"></select></div>
+        <div><label>FILM</label><span class="mono" id="oFilm">route A (PyTorch, fp16)</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Render <span class="sp"></span>
+        <button class="small" id="btnEngineStop" title="Stops the engine crispz-motion started">Stop the engine</button></h2>
+      <div class="row">
+        <button class="primary" id="btnRender">Render</button>
+        <button id="btnCancel2" class="danger">Cancel</button>
+        <span class="muted small" id="renderHint"></span>
+      </div>
+      <div class="steps" id="steps"></div>
+      <div class="media">
+        <div><label>Preview</label><img id="preview" alt=""></div>
+        <div><label>Video</label><video id="video" controls loop playsinline></video>
+          <div class="small" id="files" style="margin-top:6px"></div></div>
+      </div>
+      <div id="lastRender" class="small muted" style="margin-top:8px"></div>
+      <pre class="log" id="log"></pre>
+    </section>
+  </div>
+</main>
+
+<div id="jobbar" class="hidden">
+  <span class="lbl" id="jbLabel"></span>
+  <span id="jbState"></span>
+  <span class="muted mono" id="jbTime"></span>
+  <span class="last" id="jbLast"></span>
+  <button class="danger" id="btnCancel">Cancel</button>
+</div>
+
+<dialog id="dlg"><p id="dlgText"></p>
+  <form method="dialog" class="row" style="justify-content:flex-end">
+    <button value="no">Cancel</button><button value="yes" class="primary" id="dlgYes">OK</button></form></dialog>
+
+<script>
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const S = { status: null, pid: null, proj: null, sel: null, job: null, jobN: 0, logLines: [], tab: "chain" };
+const STEP_NAMES = { keys: "Keys", plan: "Plan", film: "FILM", timing: "Timing", size: "Size (ESRGAN)", export: "Export" };
+
+// -- theme --------------------------------------------------------------------------
+function applyTheme(t) { if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; }
+try { applyTheme(localStorage.getItem("cm-theme")); } catch (e) {}
+$("#btnTheme").onclick = () => {
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const cur = document.documentElement.dataset.theme || (dark ? "dark" : "light");
+  const nxt = cur === "dark" ? "light" : "dark";
+  applyTheme(nxt); try { localStorage.setItem("cm-theme", nxt); } catch (e) {}
+};
+
+// -- api ----------------------------------------------------------------------------
+async function api(path, body, method) {
+  const opt = { method: method || (body === undefined ? "GET" : "POST") };
+  if (body !== undefined) {
+    if (body instanceof Blob || body instanceof ArrayBuffer) opt.body = body;
+    else { opt.body = JSON.stringify(body); opt.headers = { "Content-Type": "application/json" }; }
+  }
+  const r = await fetch(path, opt);
+  let j = null; try { j = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error((j && j.error) || r.statusText);
+  return j;
+}
+function flash(msg, bad) {
+  const el = $("#jbLast"); $("#jobbar").classList.remove("hidden");
+  el.textContent = msg; el.style.color = bad ? "var(--risk)" : "";
+  if (!S.job || S.job.state !== "running") { $("#jbLabel").textContent = ""; $("#jbState").textContent = ""; $("#btnCancel").classList.add("hidden"); }
+}
+async function guarded(fn) { try { return await fn(); } catch (e) { flash(e.message, true); } }
+function ask(text) {
+  return new Promise(res => { const d = $("#dlg"); $("#dlgText").textContent = text;
+    d.onclose = () => res(d.returnValue === "yes"); d.showModal(); });
+}
+
+// -- status -------------------------------------------------------------------------
+async function loadStatus(fresh) {
+  const s = await api("/api/status" + (fresh ? "?fresh=1" : "")); S.status = s;
+  const pills = [];
+  for (const e of s.engines) pills.push(`<span class="pill ${e.running ? "ok" : "bad"}" title="${esc(e.url)}">${esc(e.name)}: ${e.running ? esc((e.tool || "") + " " + (e.version || "")) + (e.started_by_us ? " (ours)" : "") : "off"}</span>`);
+  pills.push(`<span class="pill ${s.film_ok ? "ok" : "bad"}" title="${esc(s.film)}">FILM ${s.film_ok ? "ready" : "missing"}</span>`);
+  pills.push(`<span class="pill ${s.esrgan_ok ? "ok" : "bad"}" title="${esc(s.esrgan)}">ESRGAN ${s.esrgan_ok ? esc(s.esrgan) : "missing"}</span>`);
+  $("#pills").innerHTML = pills.join("");
+  $("#projDir").textContent = s.projects_dir;
+  $("#edLic").textContent = s.edit_licence;
+  if (!$("#kEase").options.length) {
+    $("#kEase").innerHTML = s.eases.map(e => `<option>${e}</option>`).join("");
+    $("#oLoop").innerHTML = s.loops.map(e => `<option>${e}</option>`).join("");
+    $("#oEngine").innerHTML = s.engines.map(e => `<option ${e.name === s.engine ? "selected" : ""}>${esc(e.name)}</option>`).join("");
+  }
+}
+
+// -- projects -----------------------------------------------------------------------
+async function showProjects() {
+  S.pid = null; S.proj = null; history.replaceState(null, "", "#");
+  $("#vProjects").classList.remove("hidden"); $("#vProject").classList.add("hidden");
+  $("#hdrProject").textContent = "";
+  const list = await api("/api/projects");
+  $("#plist").innerHTML = list.length ? list.map(p => `
+    <div class="pcard" data-id="${esc(p.id)}">
+      ${p.thumb ? `<img loading="lazy" src="/p/${encodeURIComponent(p.id)}/thumb/${p.thumb}?w=320&m=${p.mtime}">` : `<div class="ph"></div>`}
+      <div class="b"><b title="${esc(p.id)}">${esc(p.name)}</b>
+        <span class="muted small">${p.keys} key${p.keys === 1 ? "" : "s"}${p.planned ? `, plan of ${p.planned}` : ""}${p.rendered ? ", rendered" : ""}<br>${esc(p.id)}</span></div>
+      <div class="acts"><button class="small" data-a="dup">Duplicate</button><button class="small danger" data-a="trash">Delete</button></div>
+    </div>`).join("") : `<p class="muted">No project yet.</p>`;
+}
+$("#plist").onclick = e => guarded(async () => {
+  const card = e.target.closest(".pcard"); if (!card) return;
+  const id = card.dataset.id, a = e.target.dataset.a;
+  if (a === "dup") { const r = await api(`/api/projects/${encodeURIComponent(id)}/duplicate`, {}); return openProject(r.id); }
+  if (a === "trash") {
+    if (!await ask(`Delete the project "${id}"? It goes to ${S.status.projects_dir}${"\\"}.trash, from where you can take it back.`)) return;
+    await api(`/api/projects/${encodeURIComponent(id)}/trash`, {}); return showProjects();
+  }
+  openProject(id);
+});
+$("#btnProjects").onclick = () => guarded(showProjects);
+$("#btnNew").onclick = () => guarded(async () => {
+  const r = await api("/api/projects", { name: $("#newName").value || "motion" }); $("#newName").value = ""; openProject(r.id);
+});
+$("#btnAnimator").onclick = () => guarded(async () => {
+  const fs = $("#anSettings").files[0], fk = $("#anKeys").files[0];
+  if (!fs) throw new Error("choose a settings.txt");
+  const body = { settings: await fs.text(), settings_name: fs.name, seg: parseFloat($("#anSeg").value) || 1,
+    name: $("#anName").value || "animator" };
+  if (fk) { body.keyframes = await fk.text(); body.keyframes_name = fk.name; }
+  const r = await api("/api/animator", body); openProject(r.id);
+});
+
+// -- one project --------------------------------------------------------------------
+async function openProject(id) {
+  S.pid = id; history.replaceState(null, "", "#" + encodeURIComponent(id));
+  $("#vProjects").classList.add("hidden"); $("#vProject").classList.remove("hidden");
+  S.sel = null; await loadProject(); window.scrollTo(0, 0);
+}
+const pfile = (rel, v) => `/p/${encodeURIComponent(S.pid)}/${rel}${v ? "?v=" + v : ""}`;
+async function loadProject() {
+  if (!S.pid) return;
+  const p = await api(`/api/p/${encodeURIComponent(S.pid)}`); S.proj = p;
+  $("#hdrProject").textContent = p.name;
+  $("#workSize").textContent = p.work_size ? `work size ${p.work_size[0]} x ${p.work_size[1]}` : "no key yet";
+  $("#gSizeBox").classList.toggle("hidden", !!p.work_size);
+  if (S.sel && !p.keys.find(k => k.id === S.sel)) S.sel = null;
+  renderPlan(); renderStrip(); renderKey(); renderOutput(); renderResult();
+}
+
+function renderPlan() {
+  const p = S.proj, plan = p.plan;
+  $("#secPlan").classList.toggle("hidden", !plan);
+  if (!plan) return;
+  const have = new Set(p.keys.map(k => k.id));
+  $("#planNotes").innerHTML = plan.notes.map(n => `<div class="note">${esc(n)}</div>`).join("");
+  $("#planCount").textContent = `${plan.keys.length} keys, ${p.pending} to make`;
+  $("#btnBuild").textContent = p.pending ? `Make the ${p.pending} planned key${p.pending > 1 ? "s" : ""}` : "All planned keys are made";
+  $("#btnBuild").disabled = !p.pending;
+  $("#planHint").textContent = p.pending ? "" : "Ready to render: set the output below, then Render.";
+  $("#planTable").innerHTML = `<tr><th>#</th><th>Time</th><th>Make</th><th>Seed</th><th>Denoise</th><th style="width:60%">Prompt</th><th>Key</th></tr>` +
+    plan.keys.map(k => { const made = k.kid && have.has(k.kid);
+      return `<tr class="${made ? "made" : ""}" data-i="${k.i}"><td>${k.i}</td><td>${k.t} s</td>
+      <td>${k.op === "chain" ? "img2img from " + (k.i - 1) : esc(k.op)}</td>
+      <td><input type="number" data-f="seed" value="${k.seed ?? ""}" style="width:115px" ${made ? "disabled" : ""}></td>
+      <td>${k.op === "chain" ? `<input type="number" data-f="denoise" value="${k.denoise}" step="0.125" min="0.125" max="1" style="width:70px" ${made ? "disabled" : ""}>` : ""}
+        <span class="muted small" title="the Animator's denoise per frame">${k.hist_denoise != null ? "was " + k.hist_denoise : ""}</span></td>
+      <td><textarea data-f="prompt" rows="2" ${made ? "disabled" : ""}>${esc(k.prompt)}</textarea></td>
+      <td>${made ? esc(k.kid) : ""}</td></tr>`; }).join("");
+}
+function planEdits() {
+  return $$("#planTable tr[data-i]").map(tr => { const o = { i: +tr.dataset.i };
+    $$("[data-f]", tr).forEach(el => { if (!el.disabled) o[el.dataset.f] = el.value; }); return o; });
+}
+$("#btnPlanSave").onclick = () => guarded(async () => { await api(`/api/p/${enc()}/plan`, { keys: planEdits() }); await loadProject(); flash("plan saved"); });
+$("#btnPlanAll").onclick = () => guarded(async () => {
+  await api(`/api/p/${enc()}/plan`, { keys: planEdits(), all_prompt: $("#planAllPrompt").value, all_denoise: $("#planAllDenoise").value });
+  await loadProject();
+});
+$("#btnPlanClear").onclick = () => guarded(async () => {
+  if (!await ask("Forget the plan? The keys already made stay.")) return;
+  await api(`/api/p/${enc()}/plan/clear`, {}); await loadProject();
+});
+$("#btnBuild").onclick = () => guarded(async () => {
+  await api(`/api/p/${enc()}/plan`, { keys: planEdits() }); startJob({ kind: "build" });
+});
+const enc = () => encodeURIComponent(S.pid);
+
+function renderStrip() {
+  const p = S.proj, g = {};
+  for (const e of p.guard || []) if (e.a) g[e.a + ">" + e.b] = e;
+  const parts = [];
+  p.keys.forEach((k, i) => {
+    if (i > 0) {
+      const e = g[p.keys[i - 1].id + ">" + k.id];
+      parts.push(`<div class="gap">${e ? `<span class="sc ${e.level}" title="distance between the two keys (warn ${S.status.guard.warn}, risk ${S.status.guard.risk})">${e.score.toFixed(1)}</span>` : ""}
+        <span>${(k.t - p.keys[i - 1].t).toFixed(2)} s</span>
+        <button class="small" data-mid="${p.keys[i - 1].id}|${k.id}" title="insert a middle key (FILM midpoint cleaned by img2img)">+ mid</button></div>`);
+    }
+    const nc = k.recipe && k.recipe.client === false;
+    parts.push(`<div class="kcard ${S.sel === k.id ? "sel" : ""}" draggable="true" data-id="${k.id}">
+      <img src="${k.missing ? "" : `/p/${enc()}/thumb/${k.id}?w=320&v=${k.v}`}" alt="" draggable="false">
+      <div class="b"><div class="t1"><b>${k.id}</b><span class="badge">${esc(k.source)}</span>${nc ? `<span class="badge nc" title="Moss-Image-Edit LoRA: no licence">not client</span>` : ""}</div>
+      <div class="t1 muted"><span>${k.t} s${k.hold ? ", hold " + k.hold : ""}</span><span>${k.ease !== "linear" ? esc(k.ease) : ""}</span></div>
+      <div class="pr" title="${esc(k.prompt)}">${esc(k.prompt || (k.recipe && k.recipe.file) || "")}</div>
+      <div class="muted">${k.seed != null ? "seed " + k.seed : ""}${k.effective_denoise != null ? ", d " + k.effective_denoise : ""}${k.recipe && k.recipe.from ? " &lt;- " + esc(k.recipe.from) : ""}</div></div></div>`);
+  });
+  if (p.guard && p.guard.length && p.output.loop === "closed" && p.keys.length > 2) {
+    const e = p.guard[p.guard.length - 1];
+    if (e.a) parts.push(`<div class="gap"><span class="sc ${e.level}">${e.score.toFixed(1)}</span><span>back to ${esc(e.b)}</span></div>`);
+  }
+  $("#strip").innerHTML = parts.join("") || `<p class="muted">No key yet: drop images below, generate one, or import Animator settings.</p>`;
+}
+$("#strip").onclick = e => {
+  const m = e.target.dataset.mid;
+  if (m) { const [a, b] = m.split("|"); return guarded(() => startJob({ kind: "mid", a, b, denoise: 0.2 })); }
+  const c = e.target.closest(".kcard"); if (!c) return;
+  S.sel = S.sel === c.dataset.id ? null : c.dataset.id; renderStrip(); renderKey();
+  if (S.sel) $("#secKey").scrollIntoView({ behavior: "smooth", block: "nearest" });
+};
+// drag and drop reorder
+let dragId = null;
+$("#strip").addEventListener("dragstart", e => { const c = e.target.closest(".kcard"); if (!c) return; dragId = c.dataset.id; c.classList.add("drag"); e.dataTransfer.effectAllowed = "move"; });
+$("#strip").addEventListener("dragend", () => { dragId = null; $$(".kcard").forEach(c => c.classList.remove("drag", "over")); });
+$("#strip").addEventListener("dragover", e => { const c = e.target.closest(".kcard"); if (!c || !dragId) return; e.preventDefault(); $$(".kcard").forEach(x => x.classList.toggle("over", x === c && x.dataset.id !== dragId)); });
+$("#strip").addEventListener("drop", e => guarded(async () => {
+  const c = e.target.closest(".kcard"); if (!c || !dragId || c.dataset.id === dragId) return; e.preventDefault();
+  const ids = S.proj.keys.map(k => k.id).filter(x => x !== dragId);
+  ids.splice(ids.indexOf(c.dataset.id) + (S.proj.keys.findIndex(k => k.id === dragId) < S.proj.keys.findIndex(k => k.id === c.dataset.id) ? 1 : 0), 0, dragId);
+  await api(`/api/p/${enc()}/order`, { ids }); await loadProject();
+}));
+
+// -- selected key -------------------------------------------------------------------
+function curKey() { return S.proj && S.proj.keys.find(k => k.id === S.sel); }
+function renderKey() {
+  const k = curKey(); $("#secKey").classList.toggle("hidden", !k); if (!k) return;
+  $("#kTitle").textContent = `${k.id} (${k.source})`;
+  const img = $("#kImg"); const src = pfile(k.file, k.v);
+  if (img.getAttribute("src") !== src) { img.src = src; img.onload = setupMask; }
+  $("#kT").value = k.t; $("#kHold").value = k.hold; $("#kEase").value = k.ease;
+  const r = k.recipe || {};
+  $("#kInfo").innerHTML = `<div class="small">${esc(k.prompt || "")}</div>` +
+    (r.client === false ? `<div class="note">${esc(S.status.edit_licence)}</div>` : "") +
+    (k.effective_denoise != null && r.spec && Math.abs(k.effective_denoise - r.spec.denoise) > 0.01 ? `<div class="small muted">denoise ${r.spec.denoise} asked, ${k.effective_denoise} played</div>` : "");
+  $("#kRecipe").textContent = JSON.stringify(r, null, 1);
+  $("#regenRow").classList.toggle("hidden", !r.op || r.op === "import");
+  $("#rgSeed").value = k.seed ?? "";
+  $("#chDen").dispatchEvent(new Event("input"));
+}
+async function saveKeyMeta(field, value) {
+  await guarded(async () => { await api(`/api/p/${enc()}/key/${S.sel}`, { [field]: value }); await loadProject(); });
+}
+$("#kT").onchange = e => saveKeyMeta("t", parseFloat(e.target.value));
+$("#kHold").onchange = e => saveKeyMeta("hold", parseInt(e.target.value || "0", 10));
+$("#kEase").onchange = e => saveKeyMeta("ease", e.target.value);
+$("#btnRemove").onclick = () => guarded(async () => {
+  if (!await ask(`Remove the key ${S.sel}? Its image is deleted.`)) return;
+  await api(`/api/p/${enc()}/remove/${S.sel}`, {}); S.sel = null; await loadProject();
+});
+$("#btnRegen").onclick = () => guarded(() => startJob({ kind: "regen", key: S.sel, seed: $("#rgSeed").value, cascade: $("#rgCascade").checked }));
+$("#btnRegenNew").onclick = () => guarded(() => startJob({ kind: "regen", key: S.sel, new_seed: true, cascade: $("#rgCascade").checked }));
+$("#nextTabs").onclick = e => { const t = e.target.dataset.t; if (!t) return; S.tab = t;
+  $$("#nextTabs button").forEach(b => b.classList.toggle("on", b.dataset.t === t));
+  $$("[data-p]").forEach(d => d.classList.toggle("hidden", d.dataset.p !== t));
+  $("#maskCanvas").classList.toggle("hidden", t !== "inpaint"); };
+$("#chDen").oninput = () => {
+  const d = parseFloat($("#chDen").value), n = S.status ? S.status.chain_steps : 8;
+  const start = Math.min(Math.floor(Math.max(n - n * d, 0)), n - 1);
+  $("#chEff").textContent = `${d} (${n - start} of ${n} steps)`;
+};
+$("#btnChain").onclick = () => guarded(() => startJob({ kind: "chain", from: S.sel, count: $("#chCount").value, denoise: $("#chDen").value, prompts: $("#chPrompts").value }));
+$("#btnEdit").onclick = () => guarded(() => startJob({ kind: "edit", from: S.sel, instruction: $("#edIns").value, seed: $("#edSeed").value }));
+$("#btnInpaint").onclick = () => guarded(() => {
+  if (!maskPainted) throw new Error("paint the area to redraw first");
+  return startJob({ kind: "inpaint", from: S.sel, prompt: $("#ipPrompt").value, denoise: $("#ipDen").value,
+    seed: $("#ipSeed").value, feather: $("#ipFeather").value, mask: maskData() });
+});
+
+// mask painting: the canvas is the key's own size, black = keep, white = redraw
+let maskPainted = false;
+function setupMask() {
+  const img = $("#kImg"), c = $("#maskCanvas");
+  c.width = img.naturalWidth; c.height = img.naturalHeight;
+  c.getContext("2d").clearRect(0, 0, c.width, c.height); maskPainted = false;
+}
+function maskData() {      // shown: coloured strokes over the image; sent: white on black
+  const c = $("#maskCanvas"), t = document.createElement("canvas"); t.width = c.width; t.height = c.height;
+  const x = t.getContext("2d"); x.drawImage(c, 0, 0);
+  x.globalCompositeOperation = "source-in"; x.fillStyle = "#fff"; x.fillRect(0, 0, t.width, t.height);
+  x.globalCompositeOperation = "destination-over"; x.fillStyle = "#000"; x.fillRect(0, 0, t.width, t.height);
+  return t.toDataURL("image/png");
+}
+(() => {
+  const c = $("#maskCanvas"); let down = false, last = null;
+  const pt = e => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
+  const draw = p => { const x = c.getContext("2d"); const r = parseFloat($("#ipBrush").value) * c.width / 1000;
+    x.globalCompositeOperation = $("#ipErase").checked ? "destination-out" : "source-over";
+    x.strokeStyle = x.fillStyle = "#ff2d78"; x.lineWidth = r * 2; x.lineCap = "round";
+    x.beginPath(); if (last) { x.moveTo(last[0], last[1]); x.lineTo(p[0], p[1]); x.stroke(); }
+    x.beginPath(); x.arc(p[0], p[1], r, 0, Math.PI * 2); x.fill(); last = p; maskPainted = true; };
+  c.addEventListener("pointerdown", e => { down = true; last = null; c.setPointerCapture(e.pointerId); draw(pt(e)); });
+  c.addEventListener("pointermove", e => { if (down) draw(pt(e)); });
+  c.addEventListener("pointerup", () => { down = false; last = null; });
+  $("#ipClear").onclick = setupMask;
+})();
+
+// -- add keys -----------------------------------------------------------------------
+async function upload(files) {
+  for (const f of files) {
+    flash(`importing ${f.name}...`);
+    await api(`/api/p/${enc()}/upload?name=${encodeURIComponent(f.name)}`, f);
+  }
+  await loadProject(); flash(`${files.length} image(s) imported`);
+}
+$("#files").onchange = e => guarded(() => upload([...e.target.files]).finally(() => e.target.value = ""));
+const drop = $("#drop");
+drop.addEventListener("dragover", e => { if (e.dataTransfer.types.includes("Files")) { e.preventDefault(); drop.classList.add("on"); } });
+drop.addEventListener("dragleave", () => drop.classList.remove("on"));
+drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("on");
+  guarded(() => upload([...e.dataTransfer.files].filter(f => f.type.startsWith("image/")))); });
+$("#btnGen").onclick = () => guarded(() => startJob({ kind: "gen", prompt: $("#gPrompt").value, negative: $("#gNeg").value, seed: $("#gSeed").value, size: $("#gSize").value }));
+
+// -- output -------------------------------------------------------------------------
+function renderOutput() {
+  const o = S.proj.output, i = S.proj.info || {};
+  const resv = ["1mpx", "1080p", "4k", "work", "2mpx", "720p"].includes(o.res) ? (o.res === "2mpx" ? "1080p" : o.res === "720p" ? "1mpx" : o.res) : null;
+  if (!resv && ![...$("#oRes").options].some(x => x.value === o.res)) $("#oRes").insertAdjacentHTML("beforeend", `<option value="${esc(o.res)}">${esc(o.res)}</option>`);
+  $("#oRes").value = resv || o.res; $("#oFps").value = o.fps; $("#oLoop").value = o.loop; $("#oClose").value = o.close ?? "";
+  $("#oSeg").value = o.seg; $("#oTotal").value = S.proj.keys.length > 1 ? S.proj.keys[S.proj.keys.length - 1].t : "";
+  $$(".oFmt").forEach(c => c.checked = o.formats.includes(c.value));
+  $("#oCodec").value = o.codec; $("#oCrf").value = o.crf; $("#oUp").value = o.upscaler; $("#oOrder").value = o.order;
+  $("#oClose").disabled = o.loop !== "closed";
+  $("#outInfo").textContent = [i.output_size ? `${i.output_size[0]} x ${i.output_size[1]}` : "",
+    i.frames ? `${i.frames} frames, ${i.duration_s} s` : "", i.plan_error || i.output_error || ""].filter(Boolean).join(", ");
+  $("#oFilm").textContent = S.status.film_ok ? "route A (PyTorch, fp16)" : S.status.film;
+}
+async function saveOutput(extra) {
+  const body = { res: $("#oRes").value, fps: $("#oFps").value, loop: $("#oLoop").value, close: $("#oClose").value || null,
+    formats: $$(".oFmt").filter(c => c.checked).map(c => c.value), codec: $("#oCodec").value, crf: $("#oCrf").value,
+    upscaler: $("#oUp").value, order: $("#oOrder").value, ...(extra || {}) };
+  await guarded(async () => { await api(`/api/p/${enc()}/output`, body); await loadProject(); });
+}
+["#oRes", "#oFps", "#oLoop", "#oClose", "#oCodec", "#oCrf", "#oUp", "#oOrder"].forEach(s => $(s).onchange = () => saveOutput());
+$$(".oFmt").forEach(c => c.onchange = () => saveOutput());
+$("#btnRespace").onclick = () => {
+  const seg = parseFloat($("#oSeg").value), total = parseFloat($("#oTotal").value);
+  const totNow = S.proj.keys.length > 1 ? S.proj.keys[S.proj.keys.length - 1].t : null;
+  if (total && total !== totNow) return saveOutput({ total });
+  if (seg) return saveOutput({ seg });
+};
+
+// -- render -------------------------------------------------------------------------
+$("#btnRender").onclick = () => guarded(() => startJob({ kind: "render" }));
+$("#btnCancel").onclick = $("#btnCancel2").onclick = () => guarded(() => api("/api/job/cancel", {}));
+$("#btnEngineStop").onclick = () => guarded(async () => { const r = await api("/api/engine/stop", {});
+  flash(Object.entries(r).map(([n, x]) => `${n}: ${x.ok ? (x.stopped ? "stopped" : "not ours / not running") : x.error}`).join("; ")); loadStatus(true); });
+function renderResult() {
+  const p = S.proj, f = p.files || {};
+  const vid = f["video.mp4"] ? "video.mp4" : f["video.webm"] ? "video.webm" : null;
+  const v = $("#video");
+  const src = vid ? pfile(vid, f[vid]) : "";
+  if ((v.getAttribute("src") || "") !== src) { if (src) v.src = src; else v.removeAttribute("src"); }
+  $("#files").innerHTML = Object.entries(f).map(([n, m]) => `<a href="${pfile(n, m)}" target="_blank">${n}</a>`).join(" &middot; ");
+  const lr = p.last_render;
+  $("#lastRender").innerHTML = lr ? `Last render ${esc(lr.date)}: ${lr.size[0]} x ${lr.size[1]}, ${lr.frames} frames, ${lr.duration_s} s, ${esc(lr.method)}. Times: ` +
+    Object.entries(lr.timings).map(([k, v]) => `${k.replace("_s", "")} ${v} s`).join(", ") : "";
+  if (!S.job || S.job.project !== S.pid) { if (!vid) $("#preview").removeAttribute("src"); }
+}
+function renderSteps(job) {
+  const st = (job && job.steps) || {};
+  const order = Object.keys(STEP_NAMES).filter(k => st[k]);
+  $("#steps").innerHTML = order.map(k => { const s = st[k], pc = s.total ? Math.round(100 * s.done / s.total) : 100;
+    return `<div class="step">${STEP_NAMES[k]} <span class="muted">${s.total ? `${s.done} / ${s.total}` : "done"}</span><div class="bar"><i style="width:${pc}%"></i></div></div>`; }).join("");
+}
+
+// -- jobs ---------------------------------------------------------------------------
+async function startJob(body) {
+  body.project = S.pid; body.engine = $("#oEngine").value || undefined;
+  const j = await api("/api/job", body);
+  S.job = j; S.jobN = 0; S.logLines = []; $("#log").textContent = ""; showJob(j);
+  if (body.kind === "render") $("#preview").removeAttribute("src");
+  pollJob();
+}
+function showJob(j) {
+  $("#jobbar").classList.remove("hidden"); $("#btnCancel").classList.toggle("hidden", j.state !== "running");
+  $("#jbLabel").textContent = j.label;
+  $("#jbState").innerHTML = `<span class="st-${j.state}">${j.state}</span>`;
+  $("#jbTime").textContent = `${j.elapsed} s`;
+  const last = S.logLines[S.logLines.length - 1] || "";
+  $("#jbLast").textContent = j.error ? j.error : last.replace(/^\d\d:\d\d:\d\d /, ""); $("#jbLast").style.color = j.error ? "var(--risk)" : "";
+  if (j.project === S.pid) {
+    renderSteps(j);
+    if (j.preview) { const u = "/preview?path=" + encodeURIComponent(j.preview) + "&n=" + j.n; if ($("#preview").dataset.p !== j.preview) { $("#preview").src = u; $("#preview").dataset.p = j.preview; } }
+  }
+  $("#btnRender").disabled = $("#btnBuild").disabled = j.state === "running";
+  $("#renderHint").textContent = j.state === "running" ? "a job is running" : "";
+}
+let polling = false;
+async function pollJob() {
+  if (polling) return; polling = true;
+  try {
+    while (true) {
+      const j = await api("/api/job?since=" + S.jobN);
+      if (!j) break;
+      if (S.job && j.id !== S.job.id) { S.jobN = 0; S.logLines = []; $("#log").textContent = ""; }
+      S.job = j;
+      if (j.lines.length) {
+        S.logLines.push(...j.lines); S.jobN = j.n;
+        const el = $("#log"), atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 30;
+        el.textContent = S.logLines.slice(-1500).join("\n"); if (atEnd) el.scrollTop = el.scrollHeight;
+      }
+      showJob(j);
+      if (j.state !== "running") {
+        if (S.pid && j.project === S.pid) { await loadProject(); if (j.result && j.result.keys && j.result.keys.length) { S.sel = j.result.keys[j.result.keys.length - 1]; renderStrip(); renderKey(); } }
+        loadStatus(true);
+        $("#btnBuild").disabled = !(S.proj && S.proj.pending);
+        break;
+      }
+      // the keys appear as they are made
+      if (S.pid && j.project === S.pid && (j.kind !== "render") && j.steps.keys && j.steps.keys.done !== S._kd) { S._kd = j.steps.keys.done; loadProject(); }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  } finally { polling = false; }
+}
+
+// -- start --------------------------------------------------------------------------
+(async () => {
+  await guarded(() => loadStatus());
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h) await guarded(() => openProject(h)); else await guarded(showProjects);
+  const j = await api("/api/job").catch(() => null);
+  if (j) { S.job = j; showJob(j); if (j.state === "running") pollJob(); else { S.jobN = 0; pollJob(); } }
+  setInterval(() => loadStatus().catch(() => {}), 10000);
+})();
+</script>
+</body>
+</html>

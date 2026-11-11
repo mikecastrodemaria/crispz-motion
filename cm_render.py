@@ -23,7 +23,7 @@ import cm_keys
 import cm_guard
 import cm_video
 import cm_timeline
-from cm_core import log, set_log_file
+from cm_core import log, set_log_file, progress, check_cancel
 from cm_project import cover
 
 
@@ -43,7 +43,9 @@ def _link(src, dst):
         shutil.copyfile(src, dst)
 
 
-def _progress(label, every=8):
+def _progress(label, every=8, step=None, total=0, preview=None):
+    """The worker's JSON events: to the log, and to the page's progress (step, done,
+    total; preview(ev) names an image to show)."""
     state = {"n": 0}
 
     def on_event(ev):
@@ -56,7 +58,11 @@ def _progress(label, every=8):
             state["n"] += 1
             if state["n"] % every == 0:
                 log(f"{label}: {state['n']} frames")
+            if step:
+                progress(step, state["n"], total)
         elif e == "segment":
+            if step and preview:
+                progress(step, state["n"], total, preview(ev))
             log(f"{label}: segment {ev['seg'] + 1} done, {ev['frames']} frames, "
                 f"{ev['per_frame_s']} s/frame, peak {ev.get('peak_gb')} GB")
         elif e == "done":
@@ -74,7 +80,9 @@ def _keys_upscaled(project, cfg, engines, size):
     os.makedirs(d, exist_ok=True)
     ww, wh = project.work_size
     out = []
-    for k in project.keys:
+    for i, k in enumerate(project.keys):
+        check_cancel()
+        progress("keys", i, len(project.keys))
         src = project.key_path(k)
         p = os.path.join(d, f"{k['id']}_{cm_film.file_hash(src)[:12]}_{w}x{h}.png")
         if not os.path.isfile(p):
@@ -87,6 +95,7 @@ def _keys_upscaled(project, cfg, engines, size):
             with Image.open(local) as im:
                 cover(im.convert("RGB"), w, h).save(p)
         out.append(p)
+        progress("keys", i + 1, len(project.keys), p)
     for f in os.listdir(d):         # older versions of the keys
         if os.path.join(d, f) not in out:
             os.remove(os.path.join(d, f))
@@ -133,6 +142,7 @@ def render(project, cfg, engines=None, overrides=None):
         out_w, out_h = cm_timeline.output_size(work, o["res"])
         log(f"plan: {len(pl['segments'])} segments, {len(pl['frames'])} frames "
             f"({pl['duration_s']} s), work {work[0]}x{work[1]} -> output {out_w}x{out_h}")
+        progress("plan", 1, 1)
 
         # guard: keys too far apart for FILM (said, never blocking)
         guard = cm_guard.check(project, cfg, o["loop"])
@@ -170,16 +180,29 @@ def render(project, cfg, engines=None, overrides=None):
         log(f"FILM: {len(jobs)} of {len(seg_dirs)} segments to compute "
             f"({len(seg_dirs) - len(jobs)} cached)")
         os.makedirs(os.path.join(project.path, "film"), exist_ok=True)
-        ok, err = cm_film.run_film(cfg, jobs, project.path, _progress("FILM"), log_path)
+        check_cancel()
+        n_film = sum(2 ** j["times"] - 1 for j in jobs)
+        progress("film", 0, n_film)
+
+        def film_preview(ev):
+            j = jobs[ev["seg"]]
+            return os.path.join(j["out"], f"f{2 ** (j['times'] - 1):05d}.png")
+        ok, err = cm_film.run_film(cfg, jobs, project.path,
+                                   _progress("FILM", step="film", total=n_film,
+                                             preview=film_preview), log_path)
         if not ok:
             raise RenderError(f"FILM failed: {err}")
+        progress("film", n_film, n_film)
         timings["film_s"] = round(time.time() - t0, 2)
 
         # 4. exact times: a position between two FILM frames is their blend
         t0 = time.time()
         refs = sorted(set(pl["frames"]))
         src, keep, n_blend = {}, list(seg_dirs), 0
-        for r in refs:
+        for i, r in enumerate(refs):
+            if i % 16 == 0:
+                check_cancel()
+                progress("timing", i, len(refs))
             s, pos = r
             if pos == int(pos):
                 src[r] = os.path.join(seg_dirs[s], f"f{int(pos):05d}.png")
@@ -196,6 +219,7 @@ def render(project, cfg, engines=None, overrides=None):
                         src[r] + ".tmp.png", compress_level=1)
                 os.replace(src[r] + ".tmp.png", src[r])
                 n_blend += 1
+        progress("timing", len(refs), len(refs))
         timings["blend_s"] = round(time.time() - t0, 2)
         log(f"timing: {sum(1 for r in refs if r[1] != int(r[1]))} of {len(refs)} frames "
             f"between two FILM frames ({n_blend} blended now)")
@@ -222,19 +246,28 @@ def render(project, cfg, engines=None, overrides=None):
             todo = [r for r in refs if not os.path.isfile(final[r])]
             method = f"ESRGAN {os.path.basename(model)}" if model else "Lanczos"
             log(f"size: {method} to {out_w}x{out_h}, {len(todo)} of {len(refs)} frames to do")
+            check_cancel()
+            progress("size", 0, len(todo))
             if model:
                 ok, err = cm_film.run_esrgan(cfg, model, (out_w, out_h),
                                              [{"src": src[r], "dst": final[r]} for r in todo],
-                                             project.path, _progress("ESRGAN", 32), log_path)
+                                             project.path,
+                                             _progress("ESRGAN", 32, step="size",
+                                                       total=len(todo)), log_path)
                 if not ok:
                     raise RenderError(f"ESRGAN failed: {err}")
             else:
-                for r in todo:
+                for i, r in enumerate(todo):
+                    if i % 8 == 0:
+                        check_cancel()
+                        progress("size", i, len(todo))
                     os.makedirs(os.path.dirname(final[r]), exist_ok=True)
                     with Image.open(src[r]) as im:
                         cover(im.convert("RGB"), out_w, out_h).save(final[r] + ".tmp.png",
                                                                     compress_level=1)
                     os.replace(final[r] + ".tmp.png", final[r])
+        n_size = 0 if (out_w, out_h) == film_size else len(todo)
+        progress("size", n_size, n_size)
         timings["size_s"] = round(time.time() - t0, 2)
 
         # 6. checks, then frames/
@@ -248,9 +281,12 @@ def render(project, cfg, engines=None, overrides=None):
             _link(final[r], os.path.join(fdir, f"f{i:05d}.png"))
 
         # 7. export
+        check_cancel()
+        progress("export", 0, len(o["formats"]))
         t0 = time.time()
         files = cm_video.export(project.path, int(o["fps"]), o["formats"], o,
                                 cfg.get("ffmpeg") or "ffmpeg")
+        progress("export", len(o["formats"]), len(o["formats"]))
         timings["export_s"] = round(time.time() - t0, 2)
         timings["total_s"] = round(time.time() - t_all, 2)
         project.prune_cache(keep)
