@@ -30,6 +30,9 @@ DEFAULT_OUTPUT = {
     "res": "1080p", "fps": 24, "loop": "pingpong", "seg": 1.0, "close": None,
     "formats": ["mp4"], "codec": "x264", "crf": 17, "preset": "medium",
     "webm_crf": 32, "gif_width": 720, "upscaler": "esrgan",
+    # film_first: FILM at the work size, ESRGAN on every frame (Q7, the default);
+    # keys_first: the engine upscales the keys, FILM runs at the output size (order a)
+    "order": "film_first",
 }
 
 
@@ -121,11 +124,8 @@ class Project:
         n = max([int(k["id"][1:]) for k in self.keys] + [-1]) + 1
         return f"k{n:03d}"
 
-    def add_key(self, image_path, source, recipe=None, t=None, hold=0, ease="linear",
-                max_mpx=2.1):
-        """Adds a key at the end. The first key sets the work size (its own, capped at
-        max_mpx); a later key of another size is cropped to the centre and resized, and
-        the log says so (never a silent change)."""
+    def _normalise(self, image_path, max_mpx=2.1):
+        """The image at the work size (set by the first key), and the notes to log."""
         with Image.open(image_path) as im:
             img = im.convert("RGB")
         notes = []
@@ -142,6 +142,36 @@ class Project:
                 notes.append(f"{os.path.basename(image_path)} {img.width}x{img.height} is "
                              f"cropped at the centre to the ratio of the first key")
             img = cover(img, *ws)
+        return img, notes
+
+    def key(self, kid):
+        k = next((k for k in self.keys if k["id"] == kid), None)
+        if k is None:
+            raise KeyError(f"no key {kid} (keys: {', '.join(k['id'] for k in self.keys)})")
+        return k
+
+    def replace_key_image(self, kid, image_path, recipe=None):
+        """A new image for an existing key (regeneration): same id, time, hold, ease.
+        Its file changes, so the FILM cache of its two segments no longer matches."""
+        k = self.key(kid)
+        img, notes = self._normalise(image_path)
+        img.save(self.key_path(k))
+        if recipe is not None:
+            k["recipe"] = recipe
+        self.save()
+        for n in notes:
+            log(n)
+        log(f"key {kid} replaced")
+        return k
+
+    def add_key(self, image_path, source, recipe=None, t=None, hold=0, ease="linear",
+                max_mpx=2.1):
+        """Adds a key (at the end unless t says otherwise). The first key sets the work
+        size (its own, capped at max_mpx); a later key of another size is cropped to the
+        centre and resized, and the log says so (never a silent change)."""
+        if t is not None and any(abs(float(k["t"]) - float(t)) < 1e-6 for k in self.keys):
+            raise ValueError(f"a key is already at {t} s")
+        img, notes = self._normalise(image_path, max_mpx)
         kid = self._next_id()
         rel = f"keys/{kid}.png"
         os.makedirs(os.path.join(self.path, "keys"), exist_ok=True)
@@ -159,9 +189,7 @@ class Project:
         return key
 
     def remove_key(self, kid):
-        k = next((k for k in self.keys if k["id"] == kid), None)
-        if k is None:
-            raise KeyError(f"no key {kid}")
+        k = self.key(kid)
         self.keys.remove(k)
         try:
             os.remove(self.key_path(k))

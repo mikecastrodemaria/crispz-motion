@@ -32,7 +32,7 @@ def test_keys_share_the_first_size_and_get_times(tmp_path):
     assert p.work_size == tuple(Image.open(p.key_path(k0)).size)
     assert Image.open(p.key_path(k1)).size == p.work_size               # cropped, resized
     assert [k["t"] for k in p.keys] == [0.0, 1.0]
-    assert k0["recipe"] == {"file": "a.png"}
+    assert k0["recipe"] == {"op": "import", "file": "a.png"}
     p.respace(2.5)
     assert [k["t"] for k in Project(p.path).keys] == [0.0, 2.5]         # saved
 
@@ -79,8 +79,8 @@ def test_gen_key_sends_the_turbo_spec_and_keeps_the_recipe(tmp_path):
     assert spec["steps"] == 4 and spec["guidance"] == 1.0
     assert spec["loras"] == ["moss-turbo-4-steps:1"]
     assert (spec["width"], spec["height"]) == (1088, 1920) and spec["seed"] == 7
-    assert k["source"] == "gen" and k["recipe"]["prompt"] == "a pencil drawing"
-    assert k["recipe"]["seed"] == 1234 and "out_dir" not in k["recipe"]
+    assert k["source"] == "gen" and k["recipe"]["spec"]["prompt"] == "a pencil drawing"
+    assert k["recipe"]["spec"]["seed"] == 1234 and "out_dir" not in k["recipe"]["spec"]
     # the second key is asked at the project's work size
     cm_keys.gen_key(p, FakeEngines(eng), cfg, "next")
     assert (eng.specs[1][1]["width"], eng.specs[1][1]["height"]) == p.work_size

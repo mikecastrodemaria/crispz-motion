@@ -15,6 +15,12 @@
     "loras": ["moss-turbo-4-steps:1"]
   },
   "_turbo_help": "The spec of every generated key: MOSS-Image with its Turbo LoRA, 4 steps, CFG 1 (Apache 2.0). Needs crispz-moss with per-call guidance and spec LoRAs (commits e250d99, accb7b4).",
+  "chain": {"steps": 8},
+  "_chain_help": "img2img keys (chain, mid): the denoise is a fraction of these steps, so 4 steps only allow 0.25 / 0.5 / 0.75 / 1. 8 is also the Turbo author's count above 1 Mpx.",
+  "edit": {"steps": 50, "guidance": 4.0},
+  "_edit_help": "Edit keys (Moss-Image-Edit LoRA): the author's settings. No licence is stated for that LoRA's weights: edit keys are not for client work.",
+  "guard": {"warn": 12, "risk": 25},
+  "_guard_help": "Distance guard: mean difference of 64 px grey thumbnails of two consecutive keys (0-255). Above warn the render says so, above risk it advises a middle key.",
   "gen_size": [1088, 1920],
   "projects_dir": "projects",
   "work_mpx": 2.1,

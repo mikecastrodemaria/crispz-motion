@@ -6,9 +6,9 @@ frame in between. No video model: the keys come from the crispz image engines th
 the family CLI protocol v1 (crispz-moss by default), FILM makes the motion, ESRGAN takes
 the frames to 4K, ffmpeg writes the file.
 
-> **Status: lot 1.** Projects, imported and generated keys, FILM, retiming, 4K, exports
-> and the command line work. Next: the img2img key chain (lot 2), then the web page
-> (lot 3).
+> **Status: lot 2.** Projects, keys imported or made by the family (generation, img2img
+> chain, edit, inpaint, assisted middle key, regeneration), distance guard, FILM,
+> retiming, 4K, exports and the command line work. Next: the web page (lot 3).
 
 ## Install, start, update
 
@@ -47,6 +47,59 @@ start.bat engine start|stop|status
 
 `PROJECT` is a folder, a folder name under `projects/`, or a project name (the newest
 match wins). Options of `render` are saved in the project.
+
+### Keys made by the family
+
+```bat
+start.bat gen smoke --prompt "a pencil drawing of a man ..." --seed 2763806460
+start.bat chain smoke --count 10 --denoise 0.625
+start.bat chain smoke --count 3 --prompts prompts.txt
+start.bat edit smoke "turn his head to the left"
+start.bat inpaint smoke --mask mouth.png --prompt "open mouth, smoke coming out"
+start.bat guard smoke
+start.bat mid smoke k003 k004
+start.bat regen smoke k002 --seed 12 --cascade
+start.bat remove smoke k005
+```
+
+| Command | Engine op | What it makes |
+|---|---|---|
+| `gen` | gen | a key from a prompt (Turbo LoRA, 4 steps, CFG 1) |
+| `chain` | upscale, factor 1 | the "sparse loopback": each new key is the previous one passed again through img2img at `--denoise`, seed + 1. `--prompts` gives one prompt per new key (the last repeats) |
+| `edit` | edit | the next key by instruction (Moss-Image-Edit LoRA, 50 steps, CFG 4) |
+| `inpaint` | inpaint | the next key with a masked area redrawn (white = redraw) |
+| `mid` | FILM + upscale | the assisted middle key: FILM's midpoint of two keys, cleaned by img2img at a low denoise (0.2), placed halfway |
+| `regen` | the key's own | the key made again from its recipe and the current image of its source key; `--cascade` then redoes the keys built on it |
+| `guard` | none | the distance between consecutive keys (see below) |
+
+The denoise of an img2img key is a fraction of the steps the engine plays, so it moves
+in steps: with 4 steps, 0.35 and 0.50 both play 2 and give the same image. Chain and mid
+keys therefore run 8 steps (`chain.steps` in `config.json`); the log says the effective
+value when it differs from the one asked.
+
+**What moves the subject** (measured on lot 2, from the prompt of the historic example
+1): the chain's denoise makes the image live (0.625 to 0.75 keeps the character, 0.875
+loses it); a new prompt alone barely moves the pose at those values; an edit is what
+turns a head or opens a mouth, at about 20 times the cost of a chain key. Name the style
+in the instruction ("turn his head to the left, keep the black and white pencil drawing
+style"), or the edit may change it.
+
+**Licence of edit keys.** The Moss-Image-Edit LoRA states no licence for its weights. An
+edit key says so in the log and in its recipe (`"client": false`, shown by `info`): not
+for client work.
+
+**Distance guard.** Before FILM, the render scores each pair of consecutive keys (mean
+difference of 64 px grey thumbnails, 0 to 255). Above `guard.warn` (12) it warns, above
+`guard.risk` (25) it advises a middle key: FILM fills a large gap with ghosts instead of
+motion. The guard never blocks a render.
+
+**Order of the 4K step.** `--order film_first` (default) runs FILM at the work size and
+ESRGAN on every frame. `--order keys_first` has the engine upscale the keys (ESRGAN plus a
+light Turbo refine) and runs FILM at the output size: sharper keys, softer in-betweens.
+
+An engine started by crispz-motion keeps running between commands (so a chain of
+commands does not reload the model), and a render stops it before FILM. `start.bat engine
+stop` stops it by hand; an engine you started yourself is never touched.
 
 | Option | Values |
 |---|---|
@@ -106,7 +159,8 @@ projects/<date>-<name>/
 | `cm_render.py` | one render: plan, FILM, retiming, size, checks, export |
 | `cm_timeline.py` | retiming: frame times, eases, holds, loops, output sizes |
 | `cm_project.py` | a project on disk, its keys and recipes |
-| `cm_keys.py` | keys: import, generation through the engine |
+| `cm_keys.py` | keys: import, gen, chain, edit, inpaint, mid, regeneration |
+| `cm_guard.py` | distance guard between consecutive keys |
 | `cm_engines.py` | CLI protocol v1 client and launcher of the family apps |
 | `cm_film.py` | drives the two GPU workers, FILM cache, ESRGAN model lookup |
 | `cm_film_worker.py` | FILM (PyTorch port), runs in `film/.venv` |
@@ -115,7 +169,7 @@ projects/<date>-<name>/
 | `cm_setup.py` | install, update, update check (used by the shell scripts) |
 | `cm_core.py` | config, log, atomic JSON |
 | `tools/check_video.py` | checks a video: black frames, repeats, jumps, step regularity |
-| `tools/bench_*.py` | lot 0 measurements |
+| `tools/bench_*.py` | measurements of lots 0 and 2 |
 
 Tests (CPU, no GPU): `film\.venv\Scripts\python -m pytest tests`.
 

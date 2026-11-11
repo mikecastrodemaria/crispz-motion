@@ -62,12 +62,16 @@ def to_tensor(img, device, dtype):
 
 
 def pad_to_align(t):
-    """Replicate-pads (B, C, H, W) to multiples of ALIGN; returns (padded, (h, w))."""
+    """Replicate-pads (B, C, H, W) to multiples of ALIGN; returns (padded, (h, w)).
+    The result is channels_last (NHWC): measured on lot 2 (RTX 5090, fp16, 4K), FILM
+    runs 0.45 s per frame on NHWC inputs and 3.3 to 3.6 s on the NCHW tensor F.pad
+    returns. A key of 2176 px (no padding, NHWC straight from numpy) was fast and a key
+    of 2160 px (padded) was 8 times slower, for the same tensor size."""
     h, w = t.shape[-2:]
     ph, pw = (-h) % ALIGN, (-w) % ALIGN
     if ph or pw:
         t = F.pad(t, (0, pw, 0, ph), mode="replicate")
-    return t, (h, w)
+    return t.contiguous(memory_format=torch.channels_last), (h, w)
 
 
 def to_image(t, hw):
@@ -83,6 +87,8 @@ class Film:
         t0 = time.time()
         m = torch.jit.load(model_path, map_location="cpu")
         m.eval()
+        # the weights stay as they are: converting the model to channels_last made every
+        # frame slower (5 s in 4K, 0.28 s at 2 Mpx); only the INPUTS are (pad_to_align)
         self.model = m.to(device=device, dtype=self.dtype)
         self.load_s = time.time() - t0
 
@@ -175,14 +181,12 @@ def main(argv=None):
     try:
         for seg, job in enumerate(jobs):
             ia, ib = image(job["a"]), image(job["b"])
-            if size is None:
-                size = ia.size
-            for p, im in ((job["a"], ia), (job["b"], ib)):
-                if im.size != size:
-                    emit(event="error", error=f"{p} is {im.size[0]}x{im.size[1]}, the first "
-                                              f"key is {size[0]}x{size[1]}: keys must share "
-                                              f"one size")
-                    return 2
+            size = ia.size          # the two keys of a pair share one size
+            if ib.size != size:
+                emit(event="error", error=f"{job['b']} is {ib.size[0]}x{ib.size[1]}, "
+                                          f"{job['a']} is {size[0]}x{size[1]}: the two "
+                                          f"keys of a pair must share one size")
+                return 2
             per_pair = 2 ** job["times"] - 1
             if device.type == "cuda":
                 torch.cuda.reset_peak_memory_stats()

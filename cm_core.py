@@ -22,6 +22,14 @@ DEFAULTS = {
     },
     # Turbo LoRA, 4 steps, CFG 1 (the licence choice: MOSS-Image + its Turbo LoRA, Apache 2.0)
     "turbo": {"steps": 4, "guidance": 1.0, "loras": ["moss-turbo-4-steps:1"]},
+    # img2img keys (chain, mid): more steps than gen, since the denoise is a fraction of
+    # them (4 steps only allow 0.25 / 0.5 / 0.75 / 1)
+    "chain": {"steps": 8},
+    # edit keys: the Moss-Image-Edit author's settings
+    "edit": {"steps": 50, "guidance": 4.0},
+    # distance guard between consecutive keys (cm_guard): mean difference of 64 px
+    # thumbnails, 0-255
+    "guard": {"warn": 12, "risk": 25},
     "gen_size": [1088, 1920],
     "projects_dir": "projects",
     "work_mpx": 2.1,            # keys and FILM run at this size at most (order b, Q7)

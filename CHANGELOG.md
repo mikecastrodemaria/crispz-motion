@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-11-11 - lot 2
+
+- Keys made by the family: `chain` (img2img from the previous key, seed + 1, one prompt
+  per key optional), `edit` (Moss-Image-Edit LoRA, marked not for client work), `inpaint`,
+  `mid` (FILM's midpoint cleaned by img2img), `regen` (from the recipe and the current
+  image of the source key, `--cascade` redoes the keys built on it), `remove`.
+- Recipes keep the spec sent and the id of the source key.
+- Distance guard (`cm_guard.py`, `guard` command): scores consecutive keys before FILM,
+  advises a middle key above the risk level, never blocks.
+- Effective denoise: img2img keys run 8 steps (`chain.steps`); the log says the value the
+  engine really plays.
+- Render option `--order keys_first`: the engine upscales the keys, FILM runs at the
+  output size (`film_first`, the default, unchanged).
+- FILM worker: inputs in channels_last, 7 times faster on a padded 4K key (0.5 s per frame
+  instead of 3.5), 0.11 s per frame at 1088 x 1920; pairs of different sizes accepted in
+  one jobs file (each pair keeps one size).
+- `tools/bench_lot2.py`, `tools/bench_lot2_tools.ps1`; CPU tests `tests/test_keys_lot2.py`.
+- Needs crispz-moss with whole-image variations (the protocol's upscale at factor 1 no
+  longer follows the 4K tile rules).
+
 ## 2026-11-09 - lot 1
 
 - Projects on disk with keys, recipes and output settings (`cm_project.py`).

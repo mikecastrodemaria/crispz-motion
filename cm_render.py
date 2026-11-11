@@ -19,6 +19,8 @@ import shutil
 from PIL import Image
 
 import cm_film
+import cm_keys
+import cm_guard
 import cm_video
 import cm_timeline
 from cm_core import log, set_log_file
@@ -62,6 +64,35 @@ def _progress(label, every=8):
     return on_event
 
 
+def _keys_upscaled(project, cfg, engines, size):
+    """Order a: every key upscaled by the engine (ESRGAN + a Turbo refine at denoise 0.2,
+    op upscale), cropped to the output size, cached in keys_up/ by content."""
+    if engines is None:
+        raise RenderError("order keys_first needs the engine (crispz-moss)")
+    w, h = size
+    d = os.path.join(project.path, "keys_up")
+    os.makedirs(d, exist_ok=True)
+    ww, wh = project.work_size
+    out = []
+    for k in project.keys:
+        src = project.key_path(k)
+        p = os.path.join(d, f"{k['id']}_{cm_film.file_hash(src)[:12]}_{w}x{h}.png")
+        if not os.path.isfile(p):
+            spec = dict(cfg["turbo"], input=src, factor=round(max(w / ww, h / wh), 3),
+                        denoise=0.2, model=os.path.basename(cfg.get("esrgan_model") or ""),
+                        prompt=cm_keys.prompt_of(k), seed=cm_keys.seed_of(k) or 0)
+            spec.update(cfg.get("chain") or {})
+            log(f"keys first: {k['id']} upscaled x{spec['factor']} by the engine")
+            local, _res, _caps = cm_keys._engine_call(project, engines, cfg, "upscale", spec)
+            with Image.open(local) as im:
+                cover(im.convert("RGB"), w, h).save(p)
+        out.append(p)
+    for f in os.listdir(d):         # older versions of the keys
+        if os.path.join(d, f) not in out:
+            os.remove(os.path.join(d, f))
+    return out
+
+
 def black_frames(paths, threshold=3.0):
     """Frames whose mean brightness is below threshold (0-255): a black frame."""
     bad = []
@@ -103,6 +134,23 @@ def render(project, cfg, engines=None, overrides=None):
         log(f"plan: {len(pl['segments'])} segments, {len(pl['frames'])} frames "
             f"({pl['duration_s']} s), work {work[0]}x{work[1]} -> output {out_w}x{out_h}")
 
+        # guard: keys too far apart for FILM (said, never blocking)
+        guard = cm_guard.check(project, cfg, o["loop"])
+        for e in guard:
+            msg = cm_guard.advice(e, os.path.basename(project.path))
+            if msg:
+                log(f"guard: {msg}")
+
+        # order a (option): the engine upscales the keys, FILM runs at the output size
+        key_src = [project.key_path(k) for k in project.keys]
+        film_size = tuple(work)
+        bigger = max(out_w, out_h) > max(work) * 1.1
+        if o.get("order") == "keys_first" and bigger:
+            t0 = time.time()
+            key_src = _keys_upscaled(project, cfg, engines, (out_w, out_h))
+            film_size = (out_w, out_h)
+            timings["keys_upscale_s"] = round(time.time() - t0, 2)
+
         # 2. the GPU is shared: an engine we started goes before FILM
         if engines is not None and cfg.get("stop_engine_before_film", True):
             for e in engines.by_name.values():
@@ -114,8 +162,7 @@ def render(project, cfg, engines=None, overrides=None):
         t0 = time.time()
         seg_dirs, jobs = [], []
         for s in pl["segments"]:
-            a = project.key_path(project.keys[s["a"]])
-            b = project.key_path(project.keys[s["b"]])
+            a, b = key_src[s["a"]], key_src[s["b"]]
             d = os.path.join(project.path, "film", cm_film.segment_id(a, b, s["times"], cfg))
             seg_dirs.append(d)
             if not cm_film.segment_complete(d, s["times"]):
@@ -155,9 +202,10 @@ def render(project, cfg, engines=None, overrides=None):
 
         # 5. output size
         t0 = time.time()
-        if (out_w, out_h) == tuple(work):
+        if (out_w, out_h) == film_size:
             final = src
-            method = "FILM frames as is"
+            method = "FILM frames as is" if film_size == tuple(work) else \
+                "keys upscaled by the engine, FILM at the output size (order a)"
         else:
             up = max(out_w, out_h) > max(work) * 1.1
             model, why = (cm_film.esrgan_model(cfg) if up and o.get("upscaler") == "esrgan"
@@ -207,6 +255,7 @@ def render(project, cfg, engines=None, overrides=None):
         timings["total_s"] = round(time.time() - t_all, 2)
         project.prune_cache(keep)
         summary = {"date": time.strftime("%Y-%m-%d %H:%M:%S"), "size": [out_w, out_h],
+                   "guard": guard,
                    "frames": len(pl["frames"]), "duration_s": pl["duration_s"],
                    "segments": len(pl["segments"]), "film_segments_computed": len(jobs),
                    "method": method, "files": {k: os.path.basename(v) for k, v in files.items()},
