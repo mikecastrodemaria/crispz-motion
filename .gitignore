@@ -1,6 +1,7 @@
 # --- Claude Code / local tooling ---
 .claude/
 CLAUDE.local.md
+CLAUDE.md
 *.local.json
 
 # --- Local config (machine paths, engines). ONLY config-sample.json is versioned. ---
