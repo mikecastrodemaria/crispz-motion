@@ -6,6 +6,7 @@ the three platforms cannot drift apart.
     python cm_setup.py install        two venvs, the FILM weights, config.json
     python cm_setup.py update         git pull --ff-only, then only what changed
     python cm_setup.py check-update   prints how many commits GitHub has that we lack
+    python cm_setup.py check          checks an install made another way (Pinokio)
 
 The two venvs:
     .venv        the app: stdlib + Pillow (requirements.txt)
@@ -148,8 +149,8 @@ def config_report(create=False):
                 "crispz-moss is not next to this folder)")
         return
     try:
-        a = json.load(open(cfg, encoding="utf-8"))
-        b = json.load(open(sample, encoding="utf-8"))
+        a = json.load(open(cfg, encoding="utf-8-sig"))
+        b = json.load(open(sample, encoding="utf-8-sig"))
     except (OSError, ValueError) as e:
         say(f"config.json unreadable: {e}")
         return
@@ -207,6 +208,41 @@ def update(force_deps=False):
     say("update done")
 
 
+def check():
+    """Checks an install done by another route (the Pinokio launcher): FILM venv and its
+    torch, FILM weights (size), config.json, ffmpeg. Exit code 1 on a blocking problem;
+    weights of the wrong size are removed so that the next install downloads them again."""
+    bad = []
+    py = vpy(FILM_VENV)
+    if not py:
+        bad.append("film/.venv is missing")
+    else:
+        tv = torch_version(py)
+        if not tv:
+            bad.append("torch is not installed in film/.venv")
+        else:
+            gpu = out([py, "-c", "import torch; print(torch.cuda.get_device_name(0) "
+                                 "if torch.cuda.is_available() else '')"])
+            say(f"torch {tv}, " + (f"GPU: {gpu}" if gpu else
+                                   "no CUDA GPU: FILM and ESRGAN run on the CPU (slow)"))
+        if not out([py, "-c", "import spandrel, numpy, PIL; print('ok')"]):
+            bad.append("spandrel / numpy / pillow missing in film/.venv")
+    if not os.path.isfile(FILM_FILE):
+        bad.append("FILM weights missing (film/models/film_net_fp32.pt)")
+    elif os.path.getsize(FILM_FILE) != FILM_SIZE:
+        os.remove(FILM_FILE)
+        bad.append("FILM weights had the wrong size (removed): run the install again")
+    else:
+        say("FILM weights: ok")
+    config_report(create=True)
+    check_ffmpeg()
+    for b in bad:
+        say(f"PROBLEM: {b}")
+    if bad:
+        raise SystemExit(1)
+    say("install checked: ready")
+
+
 def check_update():
     """Prints the number of commits upstream has that HEAD lacks (0 when unknown)."""
     if not shutil.which("git") or not os.path.isdir(os.path.join(HERE, ".git")):
@@ -233,6 +269,8 @@ def main():
         update(force_deps="--force-deps" in sys.argv)
     elif cmd == "check-update":
         check_update()
+    elif cmd == "check":
+        check()
     else:
         print(__doc__)
         return 2

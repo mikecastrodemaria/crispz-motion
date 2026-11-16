@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-11 - lot 4 (v1)
+
+- Pinokio launcher: [crispz-motion.pinokio](https://github.com/mikecastrodemaria/crispz-motion.pinokio)
+  (two venvs, the latest cu128 torch on NVIDIA, FILM weights, projects kept by Reset).
+- `cm_setup.py check`: checks an install made another way (torch build and GPU, FILM
+  weights size, config.json, ffmpeg).
+- README in French (`README.fr.md`); the README says where to set the engine folder and
+  the ESRGAN model.
+- `config.json` and `project.json` saved with a BOM (Notepad) are read.
+
 ## 2026-11-11 - lot 3
 
 - The web page (`cm_server.py`, `assets/index.html`): projects (open, duplicate, delete

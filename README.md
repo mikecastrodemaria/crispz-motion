@@ -6,12 +6,19 @@ frame in between. No video model: the keys come from the crispz image engines th
 the family CLI protocol v1 (crispz-moss by default), FILM makes the motion, ESRGAN takes
 the frames to 4K, ffmpeg writes the file.
 
-> **Status: lot 3.** The web page, the import of the A1111 Animator settings, projects,
+[Version française](README.fr.md)
+
+> **Status: v1.** The web page, the import of the A1111 Animator settings, projects,
 > keys imported or made by the family (generation, img2img chain, edit, inpaint, assisted
-> middle key, regeneration), distance guard, FILM, retiming, 4K, exports and the command
-> line work. Next: delivery (lot 4).
+> middle key, regeneration), distance guard, FILM, retiming, 4K, exports, the command
+> line and the Pinokio launcher.
 
 ## Install, start, update
+
+**With Pinokio**: install
+[crispz-motion.pinokio](https://github.com/mikecastrodemaria/crispz-motion.pinokio)
+(Install, Start, Update, Reset in one click; the projects live next to the app and
+survive a Reset). Otherwise, the scripts of this folder:
 
 | Windows (cmd) | Windows (PowerShell) | Linux / macOS |
 |---|---|---|
@@ -34,6 +41,17 @@ the frames to 4K, ffmpeg writes the file.
 - ffmpeg and ffprobe must be on the PATH (`winget install Gyan.FFmpeg`,
   `sudo apt install ffmpeg`, `brew install ffmpeg`).
 - macOS has no CUDA: FILM and ESRGAN run on the CPU there, slowly.
+- `python cm_setup.py check` checks an install made any other way: the torch build and
+  the GPU in `film/.venv`, the FILM weights, `config.json`, ffmpeg.
+
+**Two things to set in `config.json`:**
+
+- `engines.moss.dir`: the crispz-moss folder (default `../crispz-moss`), so crispz-motion
+  can start the engine and stop it before FILM. Not needed when you start crispz-moss
+  yourself, nor to work with your own images.
+- the ESRGAN model for 4K (`4x-ClearRealityV1.safetensors` by default): looked up in
+  `esrgan_dir`, else in crispz-moss's own ESRGAN folder. Without it, the frames above the
+  key size are resized with Lanczos (softer), and the render log says so.
 
 ## The web page
 
@@ -224,7 +242,7 @@ projects/<date>-<name>/
 | `cm_film_worker.py` | FILM (PyTorch port), runs in `film/.venv` |
 | `cm_upscale_worker.py` | ESRGAN on every frame, runs in `film/.venv` |
 | `cm_video.py` | ffmpeg exports and the make scripts |
-| `cm_setup.py` | install, update, update check (used by the shell scripts) |
+| `cm_setup.py` | install, update, update check, install check (`check`) |
 | `cm_core.py` | config, log, atomic JSON |
 | `tools/check_video.py` | checks a video: black frames, repeats, jumps, step regularity |
 | `tools/bench_*.py` | measurements of lots 0 and 2 |

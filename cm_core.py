@@ -127,7 +127,7 @@ def load_config(path=None):
     path = path or CONFIG_PATH
     cfg = {}
     if os.path.isfile(path):
-        with open(path, encoding="utf-8") as fh:
+        with open(path, encoding="utf-8-sig") as fh:
             cfg = json.load(fh)
     cfg = deep_merge(DEFAULTS, {k: v for k, v in cfg.items() if not k.startswith("_")})
     # relative paths are relative to the app folder, never to the caller's cwd
@@ -183,7 +183,7 @@ def write_json(path, data):
 
 def read_json(path, default=None):
     try:
-        with open(path, encoding="utf-8") as fh:
+        with open(path, encoding="utf-8-sig") as fh:
             return json.load(fh)
     except (OSError, ValueError):
         return default
