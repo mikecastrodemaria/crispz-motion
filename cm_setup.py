@@ -3,7 +3,8 @@
 The shell scripts only find a Python and ask the questions; the work is here, once, so
 the three platforms cannot drift apart.
 
-    python cm_setup.py install        two venvs, the FILM weights, config.json
+    python cm_setup.py install        two venvs, the FILM weights, the ESRGAN model,
+                                      config.json
     python cm_setup.py update         git pull --ff-only, then only what changed
     python cm_setup.py check-update   prints how many commits GitHub has that we lack
     python cm_setup.py check          checks an install made another way (Pinokio)
@@ -35,6 +36,13 @@ FILM_URL = ("https://github.com/dajes/frame-interpolation-pytorch/releases/downl
 FILM_FILE = os.path.join(HERE, "film", "models", "film_net_fp32.pt")
 FILM_SIZE = 137922129
 TORCH_INDEX = "https://download.pytorch.org/whl/cu128"
+# ESRGAN for 4K: 4x-ClearRealityV1 by Kim2091, pinned to the revision of 2026-02-11 that
+# states Apache 2.0 (the releases before it, and OpenModelDB, say CC BY-NC-SA 4.0)
+ESRGAN_REV = "6bfd32e08342ad5d8ae5ac2fd6629a72d525c76e"
+ESRGAN_URL = ("https://huggingface.co/Kim2091/ClearRealityV1/resolve/"
+              f"{ESRGAN_REV}/4x-ClearRealityV1.safetensors")
+ESRGAN_FILE = os.path.join(HERE, "models", "esrgan", "4x-ClearRealityV1.safetensors")
+ESRGAN_SHA256 = "83a9c8e279e3d07548e2b0d736dc2c73c1736a07072a748ed4fafbba99b44693"
 IS_MAC = platform.system() == "Darwin"
 
 
@@ -140,6 +148,33 @@ def download_weights():
     os.replace(tmp, FILM_FILE)
 
 
+def file_sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def download_esrgan():
+    """4x-ClearRealityV1 (4.5 MB, Apache 2.0 since 2026-02-11) into models/esrgan,
+    checked by its SHA-256."""
+    if os.path.isfile(ESRGAN_FILE) and file_sha256(ESRGAN_FILE) == ESRGAN_SHA256:
+        say("ESRGAN model: present")
+        return
+    os.makedirs(os.path.dirname(ESRGAN_FILE), exist_ok=True)
+    say("ESRGAN model: downloading 4x-ClearRealityV1 (4.5 MB, Apache 2.0, "
+        "huggingface.co/Kim2091/ClearRealityV1)")
+    tmp = ESRGAN_FILE + ".part"
+    with urllib.request.urlopen(ESRGAN_URL, timeout=60) as r, open(tmp, "wb") as fh:
+        shutil.copyfileobj(r, fh)
+    if file_sha256(tmp) != ESRGAN_SHA256:
+        os.remove(tmp)
+        raise SystemExit("[setup] the ESRGAN model does not match its SHA-256: run the "
+                         "install again")
+    os.replace(tmp, ESRGAN_FILE)
+
+
 def config_report(create=False):
     cfg, sample = os.path.join(HERE, "config.json"), os.path.join(HERE, "config-sample.json")
     if not os.path.isfile(cfg):
@@ -172,6 +207,7 @@ def install():
     install_app()
     install_film()
     download_weights()
+    download_esrgan()
     config_report(create=True)
     check_ffmpeg()
     say("ready. Start: start.bat / start.ps1 / ./start.sh")
@@ -201,6 +237,7 @@ def update(force_deps=False):
         if not IS_MAC and "+cu" not in tv:
             say("WARNING: torch in film/.venv is a CPU build: run update with --force-deps")
     download_weights()
+    download_esrgan()
     config_report()
     check_ffmpeg()
     if os.path.isfile(os.path.join(HERE, "CHANGELOG.md")):
@@ -234,6 +271,15 @@ def check():
         bad.append("FILM weights had the wrong size (removed): run the install again")
     else:
         say("FILM weights: ok")
+    if not os.path.isfile(ESRGAN_FILE):
+        say("WARNING: no ESRGAN model in models/esrgan: 4K frames use the engine's model "
+            "or esrgan_dir if set, else Lanczos (softer)")
+    elif file_sha256(ESRGAN_FILE) != ESRGAN_SHA256:
+        os.remove(ESRGAN_FILE)
+        bad.append("the ESRGAN model did not match its SHA-256 (removed): run the "
+                   "install again")
+    else:
+        say("ESRGAN model: ok (4x-ClearRealityV1, Apache 2.0)")
     config_report(create=True)
     check_ffmpeg()
     for b in bad:

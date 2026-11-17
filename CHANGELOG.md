@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-16
+
+- The install (scripts and Pinokio) downloads the ESRGAN model for 4K into
+  `models/esrgan`: 4x-ClearRealityV1 from Kim2091's Hugging Face repo, pinned to the
+  revision of 2026-02-11 that states Apache 2.0, checked by SHA-256. It is looked up
+  there before the engine's folder (`esrgan_dir` still wins when set).
+- `cm_setup.py check` verifies that model too.
+
 ## 2026-11-11 - lot 4 (v1)
 
 - Pinokio launcher: [crispz-motion.pinokio](https://github.com/mikecastrodemaria/crispz-motion.pinokio)

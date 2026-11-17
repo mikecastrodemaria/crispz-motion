@@ -138,6 +138,9 @@ def run_esrgan(cfg, model_path, size, jobs, workdir, on_event=None, log_path=Non
     return ok, err
 
 
+ESRGAN_OWN = os.path.join(HERE, "models", "esrgan")     # where install puts the model
+
+
 def esrgan_dir(cfg):
     """config esrgan_dir > the engine's own folder (crispz-moss preferences.json
     esrgan_dir, else <engine>/upscale_models)."""
@@ -158,10 +161,16 @@ def esrgan_dir(cfg):
 
 
 def esrgan_model(cfg):
-    """(path, None) or (None, reason)."""
-    d = esrgan_dir(cfg)
+    """(path, None) or (None, reason). Looked up in: config esrgan_dir when set, then
+    models/esrgan (downloaded by the install), then the engine's ESRGAN folder."""
     name = cfg.get("esrgan_model") or "4x-ClearRealityV1.safetensors"
-    p = name if os.path.isabs(name) else os.path.join(d, name)
-    if os.path.isfile(p):
-        return p, None
-    return None, f"ESRGAN model not found: {p} (set esrgan_dir / esrgan_model in config.json)"
+    if os.path.isabs(name):
+        return (name, None) if os.path.isfile(name) else \
+            (None, f"ESRGAN model not found: {name}")
+    dirs = [cfg["esrgan_dir"]] if cfg.get("esrgan_dir") else [ESRGAN_OWN, esrgan_dir(cfg)]
+    for d in dirs:
+        p = os.path.join(d, name)
+        if d and os.path.isfile(p):
+            return p, None
+    return None, (f"ESRGAN model {name} not found in {' or '.join(d for d in dirs if d)} "
+                  f"(run the install again, or set esrgan_dir / esrgan_model in config.json)")

@@ -28,8 +28,9 @@ survivent à un Reset). Sinon, les scripts de ce dossier :
 | `update.bat` | `update.ps1` | `./update.sh` |
 
 - **install** crée deux venvs : `.venv` pour l'app (Pillow seul) et `film/.venv` pour
-  FILM et ESRGAN (torch cu128, spandrel). Il télécharge les poids de FILM (138 Mo) et
-  écrit `config.json` à partir de `config-sample.json`. Python 3.10 à 3.13.
+  FILM et ESRGAN (torch cu128, spandrel). Il télécharge les poids de FILM (138 Mo) et le
+  modèle ESRGAN pour la 4K (4,5 Mo, dans `models/esrgan`), et écrit `config.json` à
+  partir de `config-sample.json`. Python 3.10 à 3.13.
 - **start** installe au premier lancement. Quand GitHub a des commits nouveaux, il
   demande `Update first? [y/N]` ; sans réponse au bout de 10 s, il démarre sans mettre à
   jour. Sans argument (un double-clic), il ouvre la page web ; avec des arguments, il les
@@ -45,15 +46,15 @@ survivent à un Reset). Sinon, les scripts de ce dossier :
 - `python cm_setup.py check` vérifie une installation faite autrement : la version de
   torch et le GPU dans `film/.venv`, les poids de FILM, `config.json`, ffmpeg.
 
-**Deux réglages à poser dans `config.json` :**
+**Le dossier du moteur.** Règle `engines.moss.dir` dans `config.json` sur le dossier de
+crispz-moss (`../crispz-moss` par défaut), pour que crispz-motion lance le moteur et
+l'arrête avant FILM. Inutile si tu lances crispz-moss toi-même, ou si tu travailles avec
+tes propres images.
 
-- `engines.moss.dir` : le dossier de crispz-moss (`../crispz-moss` par défaut), pour que
-  crispz-motion lance le moteur et l'arrête avant FILM. Inutile si tu lances crispz-moss
-  toi-même, ou si tu travailles avec tes propres images.
-- le modèle ESRGAN pour la 4K (`4x-ClearRealityV1.safetensors` par défaut) : cherché dans
-  `esrgan_dir`, sinon dans le dossier ESRGAN de crispz-moss. Sans lui, les images
-  au-dessus de la taille des clés passent par Lanczos (plus douces), et le journal du
-  rendu le dit.
+**Le modèle ESRGAN** (`esrgan_model`, `4x-ClearRealityV1.safetensors` par défaut) est
+cherché dans `esrgan_dir` s'il est réglé, sinon dans `models/esrgan` (où l'installation
+le place), sinon dans le dossier ESRGAN de crispz-moss. Sans lui, les images au-dessus de
+la taille des clés passent par Lanczos (plus douces), et le journal du rendu le dit.
 
 ## La page web
 
@@ -266,5 +267,8 @@ Tests (processeur, sans GPU) : `film\.venv\Scripts\python -m pytest tests`.
   PyTorch et export TorchScript : Apache 2.0 (dajes/frame-interpolation-pytorch).
 - Moteur d'image par défaut : crispz-moss (MOSS-Image, Apache 2.0) avec la LoRA Turbo
   4 steps (akhaliq/MOSS-Image-SFT-4-steps, Apache 2.0).
-- 4x-ClearRealityV1 : voir sa propre licence ; tout modèle ESRGAN lu par spandrel se règle
-  dans `config.json`.
+- Modèle ESRGAN : [4x-ClearRealityV1](https://huggingface.co/Kim2091/ClearRealityV1) de
+  Kim2091, téléchargé depuis la révision `6bfd32e` (11/02/2026), dont la fiche indique
+  Apache 2.0. Les versions antérieures, et sa page OpenModelDB, indiquent CC BY-NC-SA 4.0
+  (non commercial) : une copie prise ailleurs peut porter cette licence. Tout modèle
+  ESRGAN lu par spandrel se règle dans `config.json`.

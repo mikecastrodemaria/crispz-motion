@@ -27,8 +27,9 @@ survive a Reset). Otherwise, the scripts of this folder:
 | `update.bat` | `update.ps1` | `./update.sh` |
 
 - **install** creates two venvs: `.venv` for the app (Pillow only) and `film/.venv` for
-  FILM and ESRGAN (torch cu128, spandrel). It downloads the FILM weights (138 MB) and
-  writes `config.json` from `config-sample.json`. Python 3.10 to 3.13.
+  FILM and ESRGAN (torch cu128, spandrel). It downloads the FILM weights (138 MB) and the
+  ESRGAN model for 4K (4.5 MB, into `models/esrgan`), and writes `config.json` from
+  `config-sample.json`. Python 3.10 to 3.13.
 - **start** installs on the first run. When GitHub has new commits it asks
   `Update first? [y/N]`; after 10 s without an answer it starts without updating. With
   no argument (a double-click) it opens the web page; with arguments they go to
@@ -44,14 +45,14 @@ survive a Reset). Otherwise, the scripts of this folder:
 - `python cm_setup.py check` checks an install made any other way: the torch build and
   the GPU in `film/.venv`, the FILM weights, `config.json`, ffmpeg.
 
-**Two things to set in `config.json`:**
+**The engine folder.** Set `engines.moss.dir` in `config.json` to the crispz-moss folder
+(default `../crispz-moss`), so crispz-motion can start the engine and stop it before
+FILM. Not needed when you start crispz-moss yourself, nor to work with your own images.
 
-- `engines.moss.dir`: the crispz-moss folder (default `../crispz-moss`), so crispz-motion
-  can start the engine and stop it before FILM. Not needed when you start crispz-moss
-  yourself, nor to work with your own images.
-- the ESRGAN model for 4K (`4x-ClearRealityV1.safetensors` by default): looked up in
-  `esrgan_dir`, else in crispz-moss's own ESRGAN folder. Without it, the frames above the
-  key size are resized with Lanczos (softer), and the render log says so.
+**The ESRGAN model** (`esrgan_model`, `4x-ClearRealityV1.safetensors` by default) is
+looked up in `esrgan_dir` when set, else in `models/esrgan` (where the install puts it),
+else in crispz-moss's own ESRGAN folder. Without it, the frames above the key size are
+resized with Lanczos (softer), and the render log says so.
 
 ## The web page
 
@@ -255,5 +256,8 @@ Tests (CPU, no GPU): `film\.venv\Scripts\python -m pytest tests`.
   and TorchScript export: Apache 2.0 (dajes/frame-interpolation-pytorch).
 - Default image engine: crispz-moss (MOSS-Image, Apache 2.0) with the Turbo 4-step LoRA
   (akhaliq/MOSS-Image-SFT-4-steps, Apache 2.0).
-- 4x-ClearRealityV1: see its own licence; any spandrel ESRGAN model can be set in
-  `config.json`.
+- ESRGAN model: [4x-ClearRealityV1](https://huggingface.co/Kim2091/ClearRealityV1) by
+  Kim2091, downloaded from revision `6bfd32e` (2026-02-11), whose card states Apache 2.0.
+  The releases before it, and its OpenModelDB page, state CC BY-NC-SA 4.0
+  (non-commercial): a copy taken elsewhere may carry that licence. Any spandrel ESRGAN
+  model can be set in `config.json`.

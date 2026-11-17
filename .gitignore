@@ -18,6 +18,8 @@ env/
 # --- FILM: its own venv and the downloaded weights ---
 film/.venv/
 film/models/*.pt
+# --- ESRGAN model downloaded by the install (Apache 2.0, not redistributed here) ---
+models/
 
 # --- Local work: projects, measurements, logs ---
 projects/
